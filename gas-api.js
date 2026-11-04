@@ -13,7 +13,33 @@ const GAS_ADMIN_FUNCS = new Set([
   'deleteRequisitionFile',
   'deleteRequisition',
   'updateRepairStatus',
-  'deleteRepair'
+  'deleteRepair',
+  // ระบบคลังวัสดุ
+  'stockSetup',
+  'stockGetBoard',
+  'stockGetItemDetail',
+  'stockReceive',
+  'stockAdjust',
+  'stockPreviewDispense',
+  'stockDispense',
+  'stockReverseBatch',
+  'stockGetDispenseHistory',
+  'stockGetOpenRequisitions',
+  'stockGetRequisitionLines',
+  'stockPlanCheck',
+  'stockGetOrders',
+  'stockSaveOrder',
+  'stockDeleteOrder',
+  'stockGetPlan',
+  'stockSavePlanRow',
+  'stockGetDb',
+  'stockSaveDb',
+  'stockFillDefaults',
+  'stockGetCompanies',
+  'stockAddCompany',
+  'stockGetConfig',
+  'stockSaveConfig',
+  'stockSendDigestNow'
 ]);
 
 let GAS_ADMIN_PIN = ''; // เก็บในหน่วยความจำเท่านั้น รีเฟรชหน้าแล้วหาย
