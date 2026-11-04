@@ -189,7 +189,7 @@
       '<select id="bs" onchange="STK.filterBoard()" class="border rounded-lg px-3 py-1.5 text-sm">' + opts + '</select>' +
       '<button type="button" onclick="STK.go(\'board\',\'refresh\')" class="' + BTN + 'bg-gray-100 hover:bg-gray-200"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button></div>' +
       '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' +
-      ['รหัส', 'รายการ', 'ใช้ได้', 'min', 'สถานะ', 'หมดอายุใกล้สุด', 'สั่ง/แผน', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') +
+      ['รหัส', 'รายการ', 'คงเหลือ', 'หน่วย', 'min', 'สถานะ', 'หมดอายุใกล้สุด', 'สั่ง/แผน', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') +
       '</tr></thead><tbody id="bbody"></tbody></table></div><p id="bcount" class="text-xs text-gray-400 mt-2"></p>');
     drawBoardRows();
     S.openReq = undefined; // โหลดใหม่ทุกครั้ง เพราะมีใบเบิกใหม่เข้ามาได้ตลอด
@@ -212,15 +212,16 @@
       var plan = it.planQty === null ? '-' : '<span class="' + (it.ordered > it.planQty ? 'text-red-600 font-medium' : '') + '">' + nf(it.ordered) + ' / ' + nf(it.planQty) + '</span>';
       return '<tr class="border-t hover:bg-gray-50"><td class="p-2 text-xs text-gray-500 whitespace-nowrap">' + esc(it.id) + '</td>' +
         '<td class="p-2">' + esc(it.name) + '<div class="text-[11px] text-gray-400">' + esc(it.p151 || 'ไม่มี P151') + ' · ' + esc(it.cpn) + '</div></td>' +
-        '<td class="p-2 text-right whitespace-nowrap font-medium">' + nf(it.usable) + ' <span class="text-xs text-gray-400 font-normal">' + esc(it.unit) + '</span>' +
+        '<td class="p-2 text-right whitespace-nowrap font-medium">' + nf(it.usable) +
         (it.expQty > 0 ? '<div class="text-[11px] text-red-500 font-normal">หมดอายุแล้ว ' + nf(it.expQty) + '</div>' : '') + '</td>' +
+        '<td class="p-2 text-xs text-gray-500 whitespace-nowrap">' + esc(it.unit || '-') + '</td>' +
         '<td class="p-2 text-right">' + nf(it.min) + '</td><td class="p-2">' + badge(it.status) + '</td>' +
         '<td class="p-2 text-xs whitespace-nowrap">' + fd(it.nearest) + '</td><td class="p-2 text-xs whitespace-nowrap">' + plan + '</td>' +
         '<td class="p-2 text-right whitespace-nowrap"><button type="button" onclick="STK.detail(\'' + it.id + '\')" class="text-blue-600 text-xs underline mr-2">รายละเอียด</button>' +
         '<button type="button" onclick="STK.go(\'recv\',\'' + it.id + '\')" class="text-green-600 text-xs underline mr-2">รับ</button>' +
         '<button type="button" onclick="STK.go(\'disp\',{item:\'' + it.id + '\'})" class="text-amber-600 text-xs underline">จ่าย</button></td></tr>';
     }).join('');
-    $('bbody').innerHTML = html || '<tr><td colspan="8" class="p-4 text-center text-gray-400">ไม่พบรายการ</td></tr>';
+    $('bbody').innerHTML = html || '<tr><td colspan="9" class="p-4 text-center text-gray-400">ไม่พบรายการ</td></tr>';
     $('bcount').textContent = 'แสดง ' + rows.length + ' จาก ' + S.board.items.length + ' รายการ';
   }
   async function loadBanner() {
