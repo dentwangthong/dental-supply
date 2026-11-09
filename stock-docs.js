@@ -14,6 +14,9 @@
   var TEMPLATE_URL = 'templates/memo_appoint_officer.docx';
   var DOC_TYPE = 'ขออนุมัติแต่งตั้งเจ้าหน้าที่กำหนดคุณลักษณะและราคากลาง';
   var DOC_SUBJECT = 'ขออนุมัติให้เจ้าหน้าที่รับผิดชอบในการกำหนดรายละเอียดคุณลักษณะเฉพาะของพัสดุและราคากลาง';
+  var DOC_TYPE_SPEC = 'รายงานผลกำหนดคุณลักษณะและราคากลาง';
+  var DOC_SUBJECT_SPEC = 'รายงานผลการกำหนดรายละเอียดคุณลักษณะเฉพาะของพัสดุและราคากลาง';
+  var TYPE_LABEL = {}; TYPE_LABEL[DOC_TYPE] = 'ฉบับ ๑ แต่งตั้งเจ้าหน้าที่ฯ'; TYPE_LABEL[DOC_TYPE_SPEC] = 'ฉบับ ๒ คุณลักษณะและราคากลาง';
   var D = { sets: [], reg: [], staff: [], cfg: {}, set: null };
 
   function U() { return STK._; }
@@ -38,6 +41,8 @@
     return thaiDigits(commas(parts[0]) + (parts[1] ? '.' + parts[1] : ''));
   }
   function plainNum(v) { return thaiDigits(String(Number(v))); }
+  // ข้อความที่พิมพ์ลงเอกสาร: แปลงเลขอารบิกเป็นเลขไทย (ปิดได้ในตั้งค่า)
+  function T(s) { return (D.cfg && D.cfg.DOC_THAI_DIGITS === 'N') ? String(s) : thaiDigits(s); }
 
   var DIG = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
   var POS = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
@@ -146,38 +151,96 @@
     });
   }
 
-  function fillTemplate(xml, data, rows) {
+  // ---- ตัวเติมแม่แบบ: ช่องแทนค่า {ชื่อ}, วนซ้ำทั้งย่อหน้า {#x}…{/x}, และวนซ้ำหลายย่อหน้า (บล็อก) ซ้อนกันได้ ----
+  function mergeCtx(a, b) { var o = {}; Object.keys(a).forEach(function (k) { o[k] = a[k]; }); Object.keys(b).forEach(function (k) { o[k] = b[k]; }); return o; }
+  function fillScalars(p, ctx) {
+    return p.replace(/\{([a-z_0-9]+)\}/g, function (all, k) { var v = ctx[k]; return (v === undefined || v === null || typeof v === 'object') ? all : escXml(v); });
+  }
+  function expandSingle(p, name, ctx) {
+    var rows = ctx[name] || [];
+    var inner = p.match(new RegExp('\\{#' + name + '\\}([\\s\\S]*?)\\{/' + name + '\\}'));
+    return rows.map(function (row) {
+      var rc = mergeCtx(ctx, row), t = fillScalars(inner[1], rc);
+      return p.replace(new RegExp('\\{#' + name + '\\}[\\s\\S]*?\\{/' + name + '\\}'), function () { return t; });
+    }).join('');
+  }
+  function renderXml(xml, ctx) {
     xml = repairSplitTags(xml);
-    var m = null, re = /<w:p[ >][\s\S]*?<\/w:p>/g, x;
-    while ((x = re.exec(xml))) { if (x[0].indexOf('{#items}') >= 0) { m = x; break; } }
-    if (!m) throw new Error('แม่แบบไม่มีบรรทัดรายการ {#items}…{/items}');
-    var p = m[0], inner = p.match(/\{#items\}([\s\S]*?)\{\/items\}/);
-    if (!inner) throw new Error('แม่แบบมี {#items} แต่ไม่พบ {/items} ในย่อหน้าเดียวกัน');
-    var copies = rows.map(function (r) {
-      var t = inner[1];
-      Object.keys(r).forEach(function (k) { t = t.split('{' + k + '}').join(escXml(r[k])); });
-      return p.replace(/\{#items\}[\s\S]*?\{\/items\}/, function () { return t; });
-    }).map(function (c) { return c.replace(/ w14:paraId="[^"]*"| w14:textId="[^"]*"/g, ''); });
-    var firstBm = true;
-    var all = copies.join('').replace(/<w:bookmarkStart [^>]*\/>/g, function (b) { if (firstBm) { firstBm = false; return b; } return ''; });
-    xml = xml.slice(0, m.index) + all + xml.slice(m.index + p.length);
-    Object.keys(data).forEach(function (k) { xml = xml.split('{' + k + '}').join(escXml(data[k])); });
+    var re = /<w:p[ >][\s\S]*?<\/w:p>/g, ms = [], m;
+    while ((m = re.exec(xml))) ms.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
+    var out = '', last = 0, i = 0;
+    while (i < ms.length) {
+      var p = ms[i];
+      out += xml.slice(last, p.start);
+      var open = p.text.match(/\{#([a-z_0-9]+)\}/);
+      if (open && p.text.indexOf('{/' + open[1] + '}') >= 0) { out += expandSingle(p.text, open[1], ctx); last = p.end; i++; }
+      else if (open) {
+        var name = open[1], j = i + 1;
+        while (j < ms.length && ms[j].text.indexOf('{/' + name + '}') < 0) j++;
+        if (j >= ms.length) throw new Error('แม่แบบมี {#' + name + '} แต่ไม่พบ {/' + name + '}');
+        var block = ms.slice(i, j + 1).map(function (x) { return x.text; }).join('');
+        (ctx[name] || []).forEach(function (row) {
+          out += renderXml(block.split('{#' + name + '}').join('').split('{/' + name + '}').join(''), mergeCtx(ctx, row));
+        });
+        last = ms[j].end; i = j + 1;
+      } else { out += fillScalars(p.text, ctx); last = p.end; i++; }
+    }
+    return out + xml.slice(last);
+  }
+  function dedupeIds(xml) {
+    var seenP = {}, seenT = {}, seenB = {};
+    xml = xml.replace(/ w14:paraId="([^"]*)"/g, function (a, id) { if (seenP[id]) return ''; seenP[id] = 1; return a; });
+    xml = xml.replace(/ w14:textId="([^"]*)"/g, function (a, id) { if (seenT[id]) return ''; seenT[id] = 1; return a; });
+    return xml.replace(/<w:bookmarkStart [^>]*w:id="(\d+)"[^>]*\/>/g, function (a, id) { if (seenB[id]) return ''; seenB[id] = 1; return a; });
+  }
+  function fillTemplate(xml, ctx) {
+    xml = dedupeIds(renderXml(xml, ctx));
     var left = xml.match(/\{[#\/]?[a-z_0-9]+\}/g);
     if (left) throw new Error('แม่แบบมีช่องที่ระบบยังไม่รู้จัก: ' + Array.from(new Set(left)).join(' '));
     return xml;
   }
 
+  function b64ToBytes(b64) {
+    var bin = atob(b64), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function blobToB64(blob) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(String(fr.result).split(',')[1]); };
+      fr.onerror = function () { rej(new Error('อ่านไฟล์ไม่สำเร็จ')); };
+      fr.readAsDataURL(blob);
+    });
+  }
+  // แม่แบบ: อ่านจากโฟลเดอร์ Drive ก่อน (แก้ไฟล์ใน Drive ได้เลย) ถ้าไม่พบใช้ไฟล์สำรองบน GitHub
+  async function loadTemplateBytes(kind) {
+    var cfg = D.cfg || {};
+    var name = kind === 'spec' ? (cfg.DOC_TPL_SPEC || 'memo_spec_report.docx') : (cfg.DOC_TPL_APPOINT || 'memo_appoint_officer.docx'), reason = 'ตั้งแหล่งแม่แบบเป็น GitHub';
+    if (cfg.DOC_TPL_SOURCE === 'drive') {
+      try {
+        var r = await gasCall('stockGetTemplate', [name]);
+        if (r.found) return b64ToBytes(r.base64);
+        reason = r.reason;
+      } catch (e) { reason = e.message || String(e); }
+    }
+    try {
+      var res = await fetch(new URL('templates/' + name, document.baseURI).href, { cache: 'no-cache' });
+      if (res.ok) return new Uint8Array(await res.arrayBuffer());
+    } catch (e2) { /* ไม่มีไฟล์สำรอง */ }
+    throw new Error('ไม่พบแม่แบบ templates/' + name + ' บน GitHub (อัปโหลดไว้ในโฟลเดอร์ templates ข้างไฟล์ index.html)' + (cfg.DOC_TPL_SOURCE === 'drive' ? ' · Drive: ' + reason : ''));
+  }
+
   async function buildDocx(F) {
-    var res;
-    try { res = await fetch(new URL(TEMPLATE_URL, document.baseURI).href, { cache: 'no-cache' }); } catch (e) { res = null; }
-    if (!res || !res.ok) throw new Error('ไม่พบแม่แบบ ' + TEMPLATE_URL + ' (ต้องอัปโหลดไว้ใน GitHub โฟลเดอร์เดียวกับ index.html)');
-    var entries = readZip(await res.arrayBuffer());
+    var kind = F.kind || 'appoint';
+    if (!D.cfg || !D.cfg.DOC_TPL_APPOINT) { try { var st = await gasCall('stockGetStaff', []); D.cfg = st.cfg; D.staff = st.staff; } catch (e) { /* ใช้ชื่อไฟล์เริ่มต้น */ } }
+    var entries = readZip((await loadTemplateBytes(kind)).buffer);
     var idx = -1;
     entries.forEach(function (e, i) { if (e.name === 'word/document.xml') idx = i; });
     if (idx < 0) throw new Error('แม่แบบไม่มี word/document.xml');
     var xml = new TextDecoder().decode(await entryBytes(entries[idx]));
-    var built = buildData(F);
-    xml = fillTemplate(xml, built.data, built.rows);
+    var built = kind === 'spec' ? buildData2(F) : buildData(F);
+    xml = fillTemplate(xml, built.ctx);
     var bytes = new TextEncoder().encode(xml);
     entries[idx] = { name: 'word/document.xml', method: 0, time: entries[idx].time, date: entries[idx].date, crc: crc32(bytes), csize: bytes.length, usize: bytes.length, raw: bytes };
     return writeZip(entries);
@@ -186,18 +249,38 @@
   // F = ข้อมูลที่ผู้ใช้กรอก (เก็บเป็นค่าดิบ) → ค่าที่พิมพ์ลงเอกสาร (เลขไทยทั้งหมด)
   function lineAmount(it) { return Math.round(Number(it.qty) * Number(it.price) * 100) / 100; }
   function totalOf(items) { var t = 0; items.forEach(function (it) { t += lineAmount(it); }); return Math.round(t * 100) / 100; }
+  function rowFmt(it, i) { return { no: thaiDigits((i || 0) + 1), name: T(it.name), qty: plainNum(it.qty), unit: T(it.unit), price: money(it.price), amount: money(lineAmount(it)) }; }
+  function splitLines(t) {
+    return String(t || '').split(/\r?\n/).map(function (l) { return l.replace(/^\s*[-•–*·]+\s*/, '').trim(); }).filter(Boolean);
+  }
+  function mergeObj(a, b) { var o = {}; Object.keys(a).forEach(function (k) { o[k] = a[k]; }); Object.keys(b).forEach(function (k) { o[k] = b[k]; }); return o; }
+  // ฉบับที่ ๑
   function buildData(F) {
-    var total = totalOf(F.items);
-    var rows = F.items.map(function (it) {
-      return { name: it.name, qty: plainNum(it.qty), unit: it.unit, price: money(it.price), amount: money(lineAmount(it)) };
-    });
+    var total = totalOf(F.items), rows = F.items.map(function (it, i) { return rowFmt(it, i); });
     var data = {
       doc_prefix: F.prefix, doc_no: thaiDigits(F.docNo), doc_date: thaiDate(F.docDate), n_items: plainNum(F.items.length), fy: thaiDigits(F.fy),
-      total: money(total), total_text: bahtText(total), fund: F.fund, method: F.method,
-      officer_name: F.officer.name, officer_pos: F.officer.pos, s1_name: F.s1.name, s1_pos: F.s1.pos, s2_name: F.s2.name, s2_pos: F.s2.pos,
-      dir_name: F.dir.name, dir_pos: F.dir.pos, approve_date: thaiDate(F.approveDate)
+      total: money(total), total_text: bahtText(total), fund: T(F.fund), method: T(F.method),
+      officer_name: T(F.officer.name), officer_pos: T(F.officer.pos), s1_name: T(F.s1.name), s1_pos: T(F.s1.pos), s2_name: T(F.s2.name), s2_pos: T(F.s2.pos),
+      dir_name: T(F.dir.name), dir_pos: T(F.dir.pos), approve_date: thaiDate(F.approveDate)
     };
-    return { data: data, rows: rows, total: total };
+    return { ctx: mergeObj(data, { items: rows }), data: data, rows: rows, total: total };
+  }
+  // ฉบับที่ ๒ (รายงานผลกำหนดคุณลักษณะและราคากลาง) — "เรื่องเดิม" ใช้ข้อมูลของฉบับที่ ๑ (F.old)
+  function buildData2(F) {
+    var old = F.old, oldTotal = totalOf(old.items), total = totalOf(F.items);
+    var rows = F.items.map(function (it, i) { var r = rowFmt(it, i); r.purpose = T(String(it.purpose || '').replace(/\s*\r?\n\s*/g, ' ').trim()); return r; });
+    var specs = F.items.map(function (it, i) {
+      return { no: thaiDigits(i + 1), name: T(it.name), lines: splitLines(it.spec).map(function (l) { return { line: T(l) }; }) };
+    });
+    var ctx = {
+      doc_prefix: F.prefix, doc_no: thaiDigits(F.docNo), doc_date: thaiDate(F.docDate),
+      n_items_old: plainNum(old.items.length), items_old: old.items.map(function (it, i) { return rowFmt(it, i); }), total_old: money(oldTotal), total_old_text: bahtText(oldTotal),
+      fund: T(old.fund), fy: thaiDigits(old.fy), method: T(old.method), ref_no: thaiDigits(old.docNoFull), ref_date: thaiDate(old.docDate),
+      n_items: plainNum(F.items.length), items: rows, specs: specs, total: money(total), total_text: bahtText(total),
+      price_source: T(F.priceSource), delivery_days: thaiDigits(F.deliveryDays),
+      officer_name: T(F.officer.name), officer_pos: T(F.officer.pos), dir_name: T(F.dir.name), dir_pos: T(F.dir.pos), approve_date: thaiDate(F.approveDate)
+    };
+    return { ctx: ctx, total: total };
   }
 
   function download(blob, name) {
@@ -208,7 +291,7 @@
   }
   function fileName(F) {
     var no = String(F.docNo).replace(/[๐-๙]/g, function (c) { return TH_DIG.indexOf(c); }).replace(/[\\\/:*?"<>|\s]+/g, '_');
-    return 'ขออนุมัติแต่งตั้ง_' + no + '.docx';
+    return (F.kind === 'spec' ? 'รายงานผลกำหนดคุณลักษณะ_' : 'ขออนุมัติแต่งตั้ง_') + no + '.docx';
   }
 
   // =====================================================
@@ -251,6 +334,7 @@
     drawDocsHome();
   };
 
+  function has1(setId) { return D.reg.some(function (r) { return r.setId === setId && r.type === DOC_TYPE && r.status !== 'ลบแล้ว'; }); }
   function drawDocsHome() {
     var u = U(), esc = u.esc, nf = u.nf;
     var active = D.staff.filter(function (s) { return s.active; });
@@ -259,19 +343,25 @@
       var st = s.status === 'ออกเอกสารแล้ว' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
       return '<tr class="border-t hover:bg-gray-50"><td class="p-2 text-xs">' + esc(s.id) + '</td><td class="p-2 text-xs whitespace-nowrap">' + esc(s.created) + '</td><td class="p-2 text-right">' + s.items.length + '</td>' +
         '<td class="p-2 text-right">' + nf(s.total) + '</td><td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs ' + st + '">' + esc(s.status) + '</span></td><td class="p-2 text-xs">' + esc(s.note) + '</td>' +
-        '<td class="p-2 whitespace-nowrap"><button type="button" onclick="STK.docOpen(\'' + s.id + '\')" class="text-xs text-blue-600 underline mr-2">ทำเอกสาร</button>' +
+        '<td class="p-2 whitespace-nowrap"><button type="button" onclick="STK.docOpen(\'' + s.id + '\')" class="text-xs text-blue-600 underline mr-2">ฉบับ ๑</button>' +
+        (has1(s.id) ? '<button type="button" onclick="STK.docOpenSpec(\'' + s.id + '\')" class="text-xs text-indigo-600 underline mr-2">ฉบับ ๒</button>' : '<span class="text-xs text-gray-300 mr-2" title="ต้องออกฉบับที่ ๑ ก่อน">ฉบับ ๒</span>') +
         (s.status === 'ออกเอกสารแล้ว' ? '' : '<button type="button" onclick="STK.setDelete(\'' + s.id + '\')" class="text-xs text-red-500 underline">ลบ</button>') + '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="p-4 text-center text-gray-400">ยังไม่มีชุดจัดซื้อ — ไปที่ สั่งซื้อวัสดุ ติ๊กรายการแล้วกด "สร้างชุดจัดซื้อจากที่เลือก"</td></tr>';
     var regs = D.reg.map(function (r) {
-      return '<tr class="border-t hover:bg-gray-50"><td class="p-2 text-xs">' + esc(r.id) + '</td><td class="p-2 whitespace-nowrap">' + esc(r.docNo) + '</td><td class="p-2 text-xs whitespace-nowrap">' + esc(r.docDate) + '</td>' +
-        '<td class="p-2 text-xs">' + esc(r.type) + '</td><td class="p-2 text-right">' + r.nItems + '</td><td class="p-2 text-right">' + nf(r.total) + '</td><td class="p-2 text-xs">' + esc(r.officer) + '</td>' +
-        '<td class="p-2 whitespace-nowrap">' + (r.data ? '<button type="button" onclick="STK.docRedownload(\'' + r.id + '\')" class="text-xs text-blue-600 underline">ดาวน์โหลดอีกครั้ง</button>' : '') + '</td></tr>';
-    }).join('') || '<tr><td colspan="8" class="p-4 text-center text-gray-400">ยังไม่มีเอกสารในทะเบียน</td></tr>';
+      var del = r.status === 'ลบแล้ว';
+      var acts = del ? '<span class="text-xs text-gray-400">ลบเมื่อ ' + esc(r.deletedAt) + '</span>' :
+        (r.fileUrl ? '<a href="' + esc(r.fileUrl) + '" target="_blank" rel="noopener" class="text-xs text-emerald-600 underline mr-2">เปิดใน Drive</a>' : '') +
+        (r.data ? '<button type="button" onclick="STK.docRedownload(\'' + r.id + '\')" class="text-xs text-blue-600 underline mr-2">ดาวน์โหลดอีกครั้ง</button>' : '') +
+        '<button type="button" onclick="STK.docDelete(\'' + r.id + '\')" class="text-xs text-red-500 underline">ลบเอกสาร</button>';
+      return '<tr class="border-t hover:bg-gray-50 ' + (del ? 'text-gray-400 line-through' : '') + '"><td class="p-2 text-xs">' + esc(r.id) + '</td><td class="p-2 whitespace-nowrap">' + esc(r.docNo) + '</td><td class="p-2 text-xs whitespace-nowrap">' + esc(r.docDate) + '</td>' +
+        '<td class="p-2 text-xs">' + esc(TYPE_LABEL[r.type] || r.type) + '</td><td class="p-2 text-right">' + r.nItems + '</td><td class="p-2 text-right">' + nf(r.total) + '</td><td class="p-2 text-xs">' + esc(r.officer) + '</td>' +
+        '<td class="p-2 text-xs">' + esc(r.status) + '</td><td class="p-2 whitespace-nowrap" style="text-decoration:none">' + acts + '</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="p-4 text-center text-gray-400">ยังไม่มีเอกสารในทะเบียน</td></tr>';
     var head = function (a) { return a.map(function (h) { return '<th class="' + u.TH + '">' + h + '</th>'; }).join(''); };
     u.body(warn + '<h3 class="text-lg font-medium mb-2"><i class="fa-solid fa-layer-group text-indigo-500 mr-2"></i>ชุดจัดซื้อ</h3><div class="overflow-x-auto mb-8"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' +
       head(['รหัสชุด', 'สร้างเมื่อ', 'รายการ', 'มูลค่า (ราคาแผน)', 'สถานะ', 'หมายเหตุ', '']) + '</tr></thead><tbody>' + sets + '</tbody></table></div>' +
       '<h3 class="text-lg font-medium mb-2"><i class="fa-solid fa-book text-emerald-500 mr-2"></i>ทะเบียนคุมเอกสาร</h3><div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' +
-      head(['รหัส', 'เลขที่หนังสือ', 'วันที่', 'ประเภท', 'รายการ', 'ยอดรวม (บาท)', 'ผู้เสนอแต่งตั้ง', '']) + '</tr></thead><tbody>' + regs + '</tbody></table></div>');
+      head(['รหัส', 'เลขที่หนังสือ', 'วันที่', 'ประเภท', 'รายการ', 'ยอดรวม (บาท)', 'ผู้เสนอแต่งตั้ง', 'สถานะ', '']) + '</tr></thead><tbody>' + regs + '</tbody></table></div>');
   }
 
   STK.setDelete = async function (id) {
@@ -284,11 +374,32 @@
     STK.renderDocs();
   };
 
+  STK.docDelete = async function (regId) {
+    var u = U();
+    var r = D.reg.filter(function (x) { return x.id === regId; })[0];
+    if (!r) return;
+    var c = await Swal.fire({ icon: 'warning', title: 'ลบเอกสาร ' + r.docNo + '?',
+      html: '<div class="text-sm text-left">• ไฟล์ในโฟลเดอร์ Drive จะถูกย้ายไปถังขยะ (กู้คืนได้ภายใน 30 วัน)<br>• ทะเบียนคุมเอกสารยังเก็บแถวนี้ไว้ เปลี่ยนสถานะเป็น "ลบแล้ว"<br>• เลขที่หนังสือนี้จะใช้ออกใหม่ได้</div>',
+      showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'ลบเอกสาร', cancelButtonText: 'ยกเลิก' });
+    if (!c.isConfirmed) return;
+    var res = await u.call('stockDeleteDoc', regId);
+    if (!res) return;
+    if (!res.success) return u.fail(res.error);
+    if (res.note) await Swal.fire('ลบแล้ว', res.note, 'info'); else await u.toast('ลบเอกสารแล้ว');
+    STK.renderDocs();
+  };
+
+  // ดาวน์โหลดอีกครั้ง: ใช้ไฟล์ต้นฉบับที่เก็บใน Drive ก่อน (ข้อความตรงกับตอนออกเอกสารเสมอ) ถ้าไม่มีค่อยสร้างใหม่จากข้อมูลที่บันทึกไว้
   STK.docRedownload = async function (regId) {
     var u = U();
     var r = D.reg.filter(function (x) { return x.id === regId; })[0];
-    if (!r || !r.data) return u.fail('ไม่มีข้อมูลเก็บไว้สำหรับสร้างไฟล์ใหม่');
+    if (!r) return;
     try {
+      if (r.fileId) {
+        var f = await u.call('stockGetDocFile', regId);
+        if (f && f.found) { download(new Blob([b64ToBytes(f.base64)], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), f.name); return; }
+      }
+      if (!r.data) return u.fail('ไม่มีไฟล์ใน Drive และไม่มีข้อมูลเก็บไว้สำหรับสร้างไฟล์ใหม่');
       var F = JSON.parse(r.data);
       var blob = await buildDocx(F);
       download(blob, fileName(F));
@@ -310,7 +421,7 @@
     if (!D.sets.length || !D.staff.length) { var res = await Promise.all([u.call('stockGetSets'), u.call('stockGetStaff')]); if (!res[0] || !res[1]) return; D.sets = res[0]; D.staff = res[1].staff; D.cfg = res[1].cfg; }
     var set = D.sets.filter(function (s) { return s.id === setId; })[0];
     if (!set) return u.fail('ไม่พบชุดจัดซื้อ ' + setId);
-    D.set = set;
+    D.set = set; D.curType = DOC_TYPE;
     var cfg = D.cfg, esc = u.esc, today = u.today();
     var active = D.staff.filter(function (s) { return s.active; });
     var officers = active.filter(function (s) { return s.officer; });
@@ -319,7 +430,7 @@
     var card = function (title, inner) { return '<div class="border rounded-xl bg-white p-4 mb-4"><div class="text-sm font-medium text-gray-700 border-b pb-2 mb-3">' + title + '</div>' + inner + '</div>'; };
     var lab = function (t) { return '<label class="text-xs text-gray-500">' + t + '</label>'; };
     var inp = function (id, v, ph, type) { return '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '" class="' + u.INPUT + '">'; };
-    var itemRows = set.items.map(function (it) { return itemRowHtml({ name: it.name, qty: it.qty, unit: u.unitTh(it.unit), price: it.price }); }).join('');
+    var itemRows = set.items.map(function (it) { return itemRowHtml({ itemId: it.itemId, name: it.name, qty: it.qty, unit: u.unitTh(it.unit), price: it.price }); }).join('');
 
     u.body('<div class="max-w-4xl"><div class="flex items-center justify-between mb-3"><h3 class="text-lg font-medium"><i class="fa-solid fa-file-word text-blue-500 mr-2"></i>' + esc(DOC_TYPE) + '<span class="text-sm text-gray-400 ml-2">ชุด ' + esc(set.id) + '</span></h3>' +
       '<button type="button" onclick="STK.go(\'docs\')" class="' + u.BTN + 'bg-gray-100 hover:bg-gray-200">← กลับ</button></div>' +
@@ -351,7 +462,7 @@
 
   function itemRowHtml(it) {
     var u = U(), cls = u.INPUT;
-    return '<tr class="border-t di"><td class="p-1"><input class="di-name ' + cls + '" value="' + u.esc(it.name) + '"></td><td class="p-1"><input class="di-qty ' + cls + '" type="number" min="0" step="any" value="' + u.esc(it.qty) + '"></td>' +
+    return '<tr class="border-t di" data-item="' + u.esc(it.itemId || '') + '"><td class="p-1"><input class="di-name ' + cls + '" value="' + u.esc(it.name) + '"></td><td class="p-1"><input class="di-qty ' + cls + '" type="number" min="0" step="any" value="' + u.esc(it.qty) + '"></td>' +
       '<td class="p-1"><input class="di-unit ' + cls + '" value="' + u.esc(it.unit) + '"></td><td class="p-1"><input class="di-price ' + cls + '" type="number" min="0" step="any" value="' + (it.price > 0 ? u.esc(it.price) : '') + '" placeholder="' + (it.price > 0 ? '' : 'กรอกราคา') + '"></td>' +
       '<td class="p-1 text-right di-amt text-sm"></td><td class="p-1 text-center"><button type="button" onclick="STK.docDelRow(this)" class="text-red-500" aria-label="ลบบรรทัด"><i class="fa-solid fa-xmark"></i></button></td></tr>';
   }
@@ -361,7 +472,7 @@
   function readItems() {
     var out = [];
     document.querySelectorAll('#fItems tr.di').forEach(function (tr) {
-      out.push({ name: tr.querySelector('.di-name').value.trim(), qty: Number(tr.querySelector('.di-qty').value), unit: tr.querySelector('.di-unit').value.trim(), price: Number(tr.querySelector('.di-price').value) });
+      out.push({ itemId: tr.getAttribute('data-item') || '', name: tr.querySelector('.di-name').value.trim(), qty: Number(tr.querySelector('.di-qty').value), unit: tr.querySelector('.di-unit').value.trim(), price: Number(tr.querySelector('.di-price').value) });
     });
     return out;
   }
@@ -386,8 +497,8 @@
       if (!no) { el.innerHTML = ''; return; }
       var full = D.cfg.DOC_PREFIX + no;
       try {
-        var r = await gasCall('stockCheckDocNo', [DOC_TYPE, full]);
-        el.innerHTML = r.exists ? '<span class="text-red-600">เลขที่นี้เคยออกแล้ว (' + U().esc(r.regId) + ' · ' + U().esc(r.docDate) + ')</span>' : '<span class="text-green-600">ยังไม่เคยใช้</span>';
+        var r = await gasCall('stockCheckDocNo', [D.curType || DOC_TYPE, full]);
+        el.innerHTML = r.exists ? '<span class="text-red-600">เลขที่นี้ถูกใช้แล้ว (' + U().esc(r.regId) + ' · ' + U().esc(TYPE_LABEL[r.type] || r.type) + ' · ' + U().esc(r.docDate) + ') ต้องใช้เลขใหม่ที่ไม่ซ้ำฉบับอื่น</span>' : '<span class="text-green-600">ยังไม่เคยใช้</span>';
       } catch (e) { el.innerHTML = ''; }
     }, 400);
   }
@@ -400,7 +511,7 @@
   function readForm() {
     var v = function (id) { return $(id).value.trim(); };
     return {
-      prefix: D.cfg.DOC_PREFIX, docNo: v('fNo'), docDate: v('fDate'), approveDate: v('fApprove'), fy: v('fFy'), fund: v('fFund'), method: v('fMethod'),
+      kind: 'appoint', prefix: D.cfg.DOC_PREFIX, docNo: v('fNo'), docDate: v('fDate'), approveDate: v('fApprove'), fy: v('fFy'), fund: v('fFund'), method: v('fMethod'),
       items: readItems(), officer: { name: v('fOffName'), pos: v('fOffPos') }, s1: { name: v('fS1Name'), pos: v('fS1Pos') },
       s2: { name: v('fS2Name'), pos: v('fS2Pos') }, dir: { name: v('fDirName'), pos: v('fDirPos') }
     };
@@ -427,32 +538,137 @@
     return errs;
   }
 
-  STK.docGenerate = async function () {
-    var u = U(), F = readForm(), errs = validate(F);
+  // สร้างไฟล์ → ตรวจเลขที่ซ้ำ → บันทึกทะเบียน → ดาวน์โหลด (ใช้ร่วมกันทั้งฉบับที่ ๑ และ ๒)
+  async function runGenerate(F, errs, type, subject, btnId, after) {
+    var u = U();
     if (errs.length) return Swal.fire({ icon: 'warning', title: 'ข้อมูลยังไม่ครบ', html: '<div class="text-left text-sm">' + errs.map(function (e) { return '• ' + u.esc(e); }).join('<br>') + '</div>' });
     var full = F.prefix + F.docNo;
-    $('fGen').disabled = true;
+    if ($(btnId)) $(btnId).disabled = true;
     try {
       var dup = null;
-      try { dup = await gasCall('stockCheckDocNo', [DOC_TYPE, full]); } catch (e) { throw new Error('ตรวจเลขที่หนังสือไม่สำเร็จ: ' + e.message); }
+      try { dup = await gasCall('stockCheckDocNo', [type, full]); } catch (e) { throw new Error('ตรวจเลขที่หนังสือไม่สำเร็จ: ' + e.message); }
       var allowDup = false;
       if (dup.exists) {
-        var c = await Swal.fire({ icon: 'warning', title: 'เลขที่หนังสือซ้ำ', text: 'เลขที่นี้เคยออกแล้ว (' + dup.regId + ' · ' + dup.docDate + ') ต้องการออกซ้ำหรือไม่', showCancelButton: true, confirmButtonText: 'ออกซ้ำ', cancelButtonText: 'กลับไปแก้' });
+        var c = await Swal.fire({ icon: 'warning', title: 'เลขที่หนังสือซ้ำ', text: 'เลขที่นี้ถูกใช้แล้ว (' + dup.regId + ' · ' + (TYPE_LABEL[dup.type] || dup.type) + ' · ' + dup.docDate + ') ปกติทุกฉบับต้องใช้เลขที่ไม่ซ้ำกัน ต้องการใช้ซ้ำจริงหรือไม่', showCancelButton: true, confirmButtonText: 'ออกซ้ำ', cancelButtonText: 'กลับไปแก้' });
         if (!c.isConfirmed) return;
         allowDup = true;
       }
       var blob = await buildDocx(F);              // สร้างไฟล์ก่อน ถ้าพลาดจะยังไม่บันทึกลงทะเบียน
-      var built = buildData(F);
-      var r = await u.call('stockRegisterDoc', { type: DOC_TYPE, docNo: thaiDigits(full), docDate: built.data.doc_date, subject: DOC_SUBJECT, setId: D.set ? D.set.id : '', nItems: F.items.length,
-        total: built.total, officer: F.officer.name, s1: F.s1.name, s2: F.s2.name, dir: F.dir.name, fund: F.fund, method: F.method, data: JSON.stringify(F), allowDuplicate: allowDup });
+      var built = F.kind === 'spec' ? buildData2(F) : buildData(F);
+      var payload = { type: type, docNo: thaiDigits(full), docDate: thaiDate(F.docDate), subject: subject, setId: D.set ? D.set.id : '', nItems: F.items.length,
+        total: built.total, officer: F.officer.name, s1: (F.s1 || {}).name || '', s2: (F.s2 || {}).name || '', dir: F.dir.name, fund: F.fund || F.old.fund, method: F.method || F.old.method,
+        data: JSON.stringify(F), allowDuplicate: allowDup };
+      var saveFile = D.cfg && D.cfg.DOC_SAVE_FILES === 'Y';
+      if (saveFile) { payload.fileName = fileName(F); payload.fileBase64 = await blobToB64(blob); }
+      var r = await u.call('stockRegisterDoc', payload);
       if (!r) return;
       if (!r.success) return u.fail(r.error);
       download(blob, fileName(F));
-      await u.toast('บันทึกทะเบียน ' + r.regId + ' และดาวน์โหลดแล้ว');
+      if (after) { try { await after(); } catch (e2) { /* บันทึกข้อมูลประจำรายการไม่สำเร็จ ไม่กระทบเอกสาร */ } }
+      if (r.fileError) await Swal.fire({ icon: 'warning', title: 'บันทึกทะเบียนแล้ว แต่เก็บไฟล์ใน Drive ไม่ได้', text: r.fileError });
+      else await u.toast('บันทึกทะเบียน ' + r.regId + (saveFile ? ' เก็บไฟล์ใน Drive และ' : ' และ') + 'ดาวน์โหลดแล้ว');
       STK.go('docs');
     } catch (e) {
       u.fail(e.message || String(e));
-    } finally { if ($('fGen')) $('fGen').disabled = false; }
+    } finally { if ($(btnId)) $(btnId).disabled = false; }
+  }
+
+  STK.docGenerate = function () {
+    var F = readForm();
+    return runGenerate(F, validate(F), DOC_TYPE, DOC_SUBJECT, 'fGen');
+  };
+
+  // =====================================================
+  // 6b) ฉบับที่ ๒: รายงานผลกำหนดคุณลักษณะและราคากลาง
+  // =====================================================
+  var DAY_CHOICES = [30, 45, 60, 90];
+  STK.docOpenSpec = async function (setId) {
+    var u = U();
+    var res = await Promise.all([u.call('stockGetSets'), u.call('stockGetRegister'), u.call('stockGetStaff'), u.call('stockGetDb')]);
+    if (!res[0] || !res[1] || !res[2] || !res[3]) return;
+    D.sets = res[0]; D.reg = res[1]; D.staff = res[2].staff; D.cfg = res[2].cfg;
+    var set = D.sets.filter(function (x) { return x.id === setId; })[0];
+    if (!set) return u.fail('ไม่พบชุดจัดซื้อ ' + setId);
+    var reg1 = D.reg.filter(function (r) { return r.setId === setId && r.type === DOC_TYPE && r.status !== 'ลบแล้ว' && r.data; })[0];
+    if (!reg1) return u.fail('ชุดนี้ยังไม่มีเอกสารฉบับที่ ๑ (หรือถูกลบแล้ว) ต้องออกฉบับที่ ๑ ก่อน');
+    var F1 = JSON.parse(reg1.data);
+    var dbById = {}; res[3].items.forEach(function (i) { dbById[i.id] = i; });
+    var byName = {}; ((u.S.board && u.S.board.items) || []).forEach(function (i) { byName[i.name] = i.id; });
+    D.set = set; D.curType = DOC_TYPE_SPEC;
+    D.spec = { F1: F1, items: F1.items.map(function (it) {
+      var id = it.itemId || byName[it.name] || '', d = dbById[id] || {};
+      return { itemId: id, name: it.name, qty: it.qty, unit: it.unit, price: it.price, spec: d.spec || '', purpose: d.purpose || '' };
+    }) };
+    var esc = u.esc, today = u.today(), cfg = D.cfg;
+    var card = function (title, inner) { return '<div class="border rounded-xl bg-white p-4 mb-4"><div class="text-sm font-medium text-gray-700 border-b pb-2 mb-3">' + title + '</div>' + inner + '</div>'; };
+    var lab = function (t) { return '<label class="text-xs text-gray-500">' + t + '</label>'; };
+    var inp = function (id, v, type) { return '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v) + '" class="' + u.INPUT + '">'; };
+    var oldTotal = totalOf(F1.items);
+    var itemRows = D.spec.items.map(function (it, i) {
+      return '<tr class="border-t"><td class="p-2">' + esc(it.name) + '</td><td class="p-2 text-right whitespace-nowrap">' + u.nf(it.qty) + ' ' + esc(it.unit) + '</td>' +
+        '<td class="p-1" style="width:130px"><input id="sp' + i + '" type="number" min="0" step="any" value="' + esc(it.price) + '" oninput="STK.specRecalc()" class="' + u.INPUT + '"></td><td class="p-2 text-right" id="sa' + i + '"></td></tr>';
+    }).join('');
+    var specCards = D.spec.items.map(function (it, i) {
+      return card('รายการที่ ' + (i + 1) + ' · ' + esc(it.name),
+        '<div class="mb-3">' + lab('วัตถุประสงค์ในการใช้งาน — พิมพ์ข้อความที่ต่อจากชื่อรายการ เช่น &quot;ใช้ในงานทันตกรรมเพื่อ…&quot;') + '<textarea id="sPur' + i + '" rows="2" class="' + u.INPUT + '">' + esc(it.purpose) + '</textarea></div>' +
+        '<div>' + lab('คุณสมบัติทั่วไป (หนึ่งบรรทัดต่อหนึ่งข้อ)') + '<textarea id="sSpec' + i + '" rows="7" class="' + u.INPUT + '">' + esc(it.spec) + '</textarea></div>' +
+        (it.itemId ? '' : '<p class="text-xs text-amber-700 mt-1">รายการนี้ไม่มีรหัสวัสดุในฐานข้อมูล จึงบันทึกเป็นค่าประจำรายการไม่ได้</p>'));
+    }).join('');
+    var daysOpts = DAY_CHOICES.map(function (d) { return '<option value="' + d + '"' + (d === 30 ? ' selected' : '') + '>' + d + ' วัน</option>'; }).join('');
+
+    u.body('<div class="max-w-4xl"><div class="flex items-center justify-between mb-3"><h3 class="text-lg font-medium"><i class="fa-solid fa-file-word text-blue-500 mr-2"></i>' + esc(DOC_TYPE_SPEC) + '<span class="text-sm text-gray-400 ml-2">ชุด ' + esc(set.id) + '</span></h3>' +
+      '<button type="button" onclick="STK.go(\'docs\')" class="' + u.BTN + 'bg-gray-100 hover:bg-gray-200">← กลับ</button></div>' +
+      card('วรรคที่ ๑ · หัวบันทึกข้อความ', '<p class="text-xs text-gray-500 mb-2">เรื่อง: ' + esc(DOC_SUBJECT_SPEC) + '</p><div class="grid grid-cols-1 md:grid-cols-2 gap-3"><div>' + lab('เลขที่หนังสือ — พิมพ์เฉพาะเลขลำดับต่อจาก <b>' + esc(cfg.DOC_PREFIX) + '</b>') + inp('fNo', '') + '<div id="fNoHint" class="text-xs mt-1"></div></div><div>' + lab('วันที่ (หัวเอกสาร)') + inp('fDate', today, 'date') + '</div></div>') +
+      card('วรรคที่ ๒ · เรื่องเดิม (ดึงจากฉบับที่ ๑ อัตโนมัติ)', '<p class="text-sm text-gray-700">ตามบันทึกข้อความ ที่ <b>' + esc(thaiDigits(F1.prefix + F1.docNo)) + '</b> ลงวันที่ <b>' + esc(thaiDate(F1.docDate)) + '</b> · ' + F1.items.length + ' รายการ รวม <b>' + u.nf(oldTotal) + '</b> บาท · ' + esc(F1.fund) + ' · ปีงบประมาณ ' + esc(F1.fy) + ' · วิธี' + esc(F1.method) + '</p>') +
+      card('วรรคที่ ๓ · ข้อเท็จจริง และราคากลางต่อหน่วย', '<p class="text-xs text-gray-500 mb-2">ราคาเริ่มต้นเท่ากับฉบับที่ ๑ (ราคาตามแผน) แก้ได้ถ้าราคาที่สืบมาเปลี่ยน</p>' +
+        '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr><th class="' + u.TH + '">รายการ</th><th class="' + u.TH + '">จำนวน</th><th class="' + u.TH + '">ราคากลาง/หน่วย</th><th class="' + u.TH + '">เป็นเงิน</th></tr></thead><tbody>' + itemRows + '</tbody></table></div>' +
+        '<div id="fTotal" class="mt-3 p-2 rounded-lg bg-blue-50 text-sm text-blue-900"></div>' +
+        '<div class="mt-3">' + lab('ที่มาของราคากลาง (ข้อความเต็ม แก้ได้)') + inp('fSource', 'กำหนดราคากลางจากการสืบราคาจากท้องตลาด') + '</div>') +
+      '<h4 class="font-medium mb-2">วรรคที่ ๔ · คุณลักษณะเฉพาะ (เอกสารแนบ)</h4>' + specCards +
+      card('ระยะเวลาดำเนินการและการส่งมอบพัสดุ', '<div class="max-w-xs">' + lab('กำหนดวันเดียวทั้งเอกสาร') + '<select id="fDays" class="' + u.INPUT + '">' + daysOpts + '</select></div><p class="text-xs text-gray-500 mt-2">เงื่อนไขเฉพาะ (๔.๑ ๔.๒) และหลักเกณฑ์การพิจารณาเป็นข้อความคงที่ในแม่แบบ</p>') +
+      card('วรรคที่ ๕ · ผู้ลงนามและอนุมัติ (ใช้คนเดียวกับฉบับที่ ๑)', '<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2"><div>' + lab('ผู้กำหนดคุณลักษณะ — ชื่อ-สกุล') + inp('fOffName', F1.officer.name) + '</div><div>' + lab('ตำแหน่ง') + inp('fOffPos', F1.officer.pos) + '</div>' +
+        '<div>' + lab('ผู้อำนวยการ — ชื่อ-สกุล') + inp('fDirName', F1.dir.name) + '</div><div>' + lab('ตำแหน่ง') + inp('fDirPos', F1.dir.pos) + '</div></div><div class="max-w-xs">' + lab('วันที่ท้ายเอกสาร (ผู้อำนวยการอนุมัติ)') + inp('fApprove', today, 'date') + '</div>') +
+      '<label class="text-sm block mb-3"><input type="checkbox" id="fSaveSpec" checked> บันทึกวัตถุประสงค์และคุณสมบัติทั่วไปกลับเป็นค่าประจำรายการ (ครั้งต่อไปขึ้นให้อัตโนมัติ)</label>' +
+      '<div class="flex flex-wrap gap-2"><button type="button" id="fGen2" onclick="STK.docGenerateSpec()" class="' + u.BTN + 'bg-blue-500 text-white hover:bg-blue-600"><i class="fa-solid fa-file-arrow-down mr-1"></i>สร้างไฟล์ Word (.docx)</button></div></div>');
+    $('fNo').addEventListener('input', docNoHint);
+    STK.specRecalc();
+  };
+  STK.specRecalc = function () {
+    var u = U(), items = D.spec.items.map(function (it, i) { return { qty: it.qty, price: Number($('sp' + i).value) }; });
+    items.forEach(function (it, i) { $('sa' + i).textContent = (it.qty > 0 && it.price > 0) ? u.nf(lineAmount(it)) : '-'; });
+    var total = totalOf(items.filter(function (i) { return i.qty > 0 && i.price > 0; }));
+    $('fTotal').innerHTML = 'ราคากลางรวม ' + items.length + ' รายการ เป็นเงิน <b>' + u.nf(total) + '</b> บาท (' + (total > 0 ? bahtText(total) : '-') + ')';
+  };
+  function readFormSpec() {
+    var v = function (id) { return $(id).value.trim(); }, F1 = D.spec.F1;
+    return {
+      kind: 'spec', prefix: D.cfg.DOC_PREFIX, docNo: v('fNo'), docDate: v('fDate'), approveDate: v('fApprove'), deliveryDays: Number($('fDays').value), priceSource: v('fSource'),
+      items: D.spec.items.map(function (it, i) { return { itemId: it.itemId, name: it.name, qty: it.qty, unit: it.unit, price: Number($('sp' + i).value), purpose: v('sPur' + i), spec: $('sSpec' + i).value }; }),
+      old: { items: F1.items, docNoFull: F1.prefix + F1.docNo, docDate: F1.docDate, fund: F1.fund, method: F1.method, fy: F1.fy },
+      officer: { name: v('fOffName'), pos: v('fOffPos') }, dir: { name: v('fDirName'), pos: v('fDirPos') }
+    };
+  }
+  function validateSpec(F) {
+    var errs = [];
+    if (!F.docNo) errs.push('ใส่เลขที่หนังสือ');
+    if (!F.docDate) errs.push('เลือกวันที่หัวเอกสาร');
+    if (!F.approveDate) errs.push('เลือกวันที่ท้ายเอกสาร');
+    if (DAY_CHOICES.indexOf(F.deliveryDays) < 0) errs.push('เลือกระยะเวลาส่งมอบ');
+    if (!F.priceSource) errs.push('ใส่ที่มาของราคากลาง');
+    F.items.forEach(function (it, i) {
+      var n = 'รายการที่ ' + (i + 1) + ' (' + it.name + '): ';
+      if (!(it.price > 0)) errs.push(n + 'ใส่ราคากลางต่อหน่วย');
+      if (!it.purpose) errs.push(n + 'ใส่วัตถุประสงค์ในการใช้งาน');
+      if (!splitLines(it.spec).length) errs.push(n + 'ใส่คุณสมบัติทั่วไปอย่างน้อย 1 ข้อ');
+    });
+    [['officer', 'ผู้กำหนดคุณลักษณะ'], ['dir', 'ผู้อำนวยการ']].forEach(function (p) { if (!F[p[0]].name || !F[p[0]].pos) errs.push('ใส่ชื่อและตำแหน่งของ ' + p[1]); });
+    return errs;
+  }
+  STK.docGenerateSpec = function () {
+    var F = readFormSpec(), save = $('fSaveSpec') && $('fSaveSpec').checked;
+    return runGenerate(F, validateSpec(F), DOC_TYPE_SPEC, DOC_SUBJECT_SPEC, 'fGen2', save ? function () {
+      return gasCall('stockSaveItemSpecs', [{ items: F.items.filter(function (i) { return i.itemId; }).map(function (i) { return { itemId: i.itemId, purpose: i.purpose, spec: i.spec }; }) }]);
+    } : null);
   };
 
   // =====================================================
@@ -478,17 +694,40 @@
       '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"><div><label class="text-xs text-gray-500">ส่วนหน้าเลขที่หนังสือ</label><input id="cfPrefix" value="' + esc(cfg.DOC_PREFIX) + '" class="' + u.INPUT + '"></div>' +
       '<div><label class="text-xs text-gray-500">แหล่งเงินเริ่มต้น</label><input id="cfFund" value="' + esc(cfg.DOC_FUND) + '" class="' + u.INPUT + '"></div>' +
       '<div><label class="text-xs text-gray-500">วิธีจัดซื้อเริ่มต้น</label><input id="cfMethod" value="' + esc(cfg.DOC_METHOD) + '" class="' + u.INPUT + '"></div></div>' +
-      '<button type="button" onclick="STK.docCfgSave()" class="' + u.BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึกผู้ลงนามและค่าเริ่มต้นเอกสาร</button>' +
+      '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"><div><label class="text-xs text-gray-500">รหัสโฟลเดอร์ Drive เก็บแม่แบบ</label><input id="cfTplFolder" value="' + esc(cfg.DOC_TEMPLATE_FOLDER_ID) + '" class="' + u.INPUT + '"></div>' +
+      '<div><label class="text-xs text-gray-500">รหัสโฟลเดอร์ Drive เก็บไฟล์เอกสาร</label><input id="cfOutFolder" value="' + esc(cfg.DOC_OUTPUT_FOLDER_ID) + '" class="' + u.INPUT + '"></div>' +
+      '<div><label class="text-xs text-gray-500">ชื่อไฟล์แม่แบบ ฉบับที่ ๑ (ขออนุมัติแต่งตั้งเจ้าหน้าที่ฯ)</label><input id="cfTplName" value="' + esc(cfg.DOC_TPL_APPOINT) + '" class="' + u.INPUT + '"></div></div>' +
+      '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"><div><label class="text-xs text-gray-500">ชื่อไฟล์แม่แบบ ฉบับที่ ๒ (รายงานผลคุณลักษณะและราคากลาง)</label><input id="cfTplSpec" value="' + esc(cfg.DOC_TPL_SPEC) + '" class="' + u.INPUT + '"></div>' +
+      '<div><label class="text-xs text-gray-500">แหล่งไฟล์แม่แบบ</label><select id="cfTplSource" class="' + u.INPUT + '"><option value="github"' + (cfg.DOC_TPL_SOURCE === 'drive' ? '' : ' selected') + '>GitHub (โฟลเดอร์ templates)</option><option value="drive"' + (cfg.DOC_TPL_SOURCE === 'drive' ? ' selected' : '') + '>Drive ก่อน แล้วสำรอง GitHub</option></select></div>' +
+      '<label class="text-sm self-end pb-2"><input type="checkbox" id="cfThai"' + (cfg.DOC_THAI_DIGITS === 'N' ? '' : ' checked') + '> แปลงเลขอารบิกในชื่อวัสดุและข้อความเป็นเลขไทยด้วย</label>' +
+      '<label class="text-sm self-end pb-2"><input type="checkbox" id="cfSaveFiles"' + (cfg.DOC_SAVE_FILES === 'Y' ? ' checked' : '') + '> เก็บไฟล์ .docx ลงโฟลเดอร์ Drive ด้วย (ปกติไม่ต้อง เพราะสร้างซ้ำจากทะเบียนได้)</label></div>' +
+      '<div class="flex flex-wrap gap-2"><button type="button" onclick="STK.docCfgSave()" class="' + u.BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึกผู้ลงนามและค่าเริ่มต้นเอกสาร</button>' +
+      '<button type="button" onclick="STK.folderCheck()" class="' + u.BTN + 'bg-gray-100 hover:bg-gray-200"><i class="fa-brands fa-google-drive mr-1"></i>ตรวจโฟลเดอร์ Drive</button></div>' +
       '<p class="text-xs text-gray-400 mt-2">ถ้ามีการโยกย้าย: เพิ่มคนใหม่ → เลือกเป็นผู้ลงนามแล้วบันทึก → ปิดใช้งานคนเดิม เอกสารที่ออกไปแล้วยังเก็บชื่อเดิมไว้ในทะเบียนคุมเอกสาร</p>';
   };
   STK.docCfgSave = async function () {
     var u = U();
-    var r = await u.call('stockSaveDocConfig', { SIGN_S1: $('cfS1').value, SIGN_S2: $('cfS2').value, SIGN_DIR: $('cfDir').value, DOC_PREFIX: $('cfPrefix').value, DOC_FUND: $('cfFund').value, DOC_METHOD: $('cfMethod').value });
+    var r = await u.call('stockSaveDocConfig', { SIGN_S1: $('cfS1').value, SIGN_S2: $('cfS2').value, SIGN_DIR: $('cfDir').value, DOC_PREFIX: $('cfPrefix').value, DOC_FUND: $('cfFund').value, DOC_METHOD: $('cfMethod').value,
+      DOC_TEMPLATE_FOLDER_ID: $('cfTplFolder').value, DOC_OUTPUT_FOLDER_ID: $('cfOutFolder').value, DOC_TPL_APPOINT: $('cfTplName').value, DOC_TPL_SPEC: $('cfTplSpec').value, DOC_SAVE_FILES: $('cfSaveFiles').checked ? 'Y' : 'N', DOC_TPL_SOURCE: $('cfTplSource').value, DOC_THAI_DIGITS: $('cfThai').checked ? 'Y' : 'N' });
     if (!r) return;
     if (!r.success) return u.fail(r.error);
     await u.toast('บันทึกแล้ว');
     STK.renderStaffSection();
   };
+  STK.folderCheck = async function () {
+    var u = U();
+    var r = await u.call('stockCheckDocFolders');
+    if (!r) return;
+    var has = r.templates.indexOf(r.expected) >= 0;
+    var html = '<div class="text-left text-sm">' +
+      '<b>โฟลเดอร์แม่แบบ:</b> ' + (r.templateError ? '<span class="text-red-600">' + u.esc(r.templateError) + '</span>' : 'พบไฟล์ ' + r.templates.length + ' ไฟล์') +
+      (r.templates.length ? '<br>' + r.templates.map(function (n) { return '• ' + u.esc(n); }).join('<br>') : '') +
+      '<br><b>แม่แบบ ฉบับที่ ๑:</b> ' + u.esc(r.expected) + ' → ' + (has ? '<span class="text-green-600">พบ</span>' : '<span class="text-red-600">ไม่พบ</span>') +
+      '<br><b>แม่แบบ ฉบับที่ ๒:</b> ' + u.esc(r.expected2) + ' → ' + (r.templates.indexOf(r.expected2) >= 0 ? '<span class="text-green-600">พบ</span>' : '<span class="text-red-600">ไม่พบ</span>') +
+      '<br><b>โฟลเดอร์เก็บไฟล์เอกสาร:</b> ' + (r.outputOk ? '<span class="text-green-600">เปิดได้</span>' : '<span class="text-red-600">' + u.esc(r.outputError) + '</span>') + '</div>';
+    Swal.fire({ icon: (has && r.templates.indexOf(r.expected2) >= 0) ? 'success' : 'warning', title: 'ผลตรวจโฟลเดอร์ Drive', html: html });
+  };
+
   STK.staffEdit = function (id) {
     var u = U(), s = id ? D.staff.filter(function (x) { return x.id === id; })[0] : { id: '', name: '', pos: '', officer: false, active: true };
     u.modal(id ? 'แก้ไขรายชื่อ ' + u.esc(id) : 'เพิ่มรายชื่อเจ้าหน้าที่',
