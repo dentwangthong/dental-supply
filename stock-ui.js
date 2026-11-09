@@ -784,15 +784,16 @@
     $('dcount').textContent = 'แสดง ' + rows.length + ' จาก ' + S.db.items.length + ' รายการ';
   }
   STK.dbEdit = function (row) {
-    var i = row ? S.db.items.filter(function (x) { return x.row === row; })[0] : { cpn: '', p151: '', name: '', unit: '', rate: null, min: null, spec: '' };
+    var i = row ? S.db.items.filter(function (x) { return x.row === row; })[0] : { cpn: '', p151: '', name: '', unit: '', rate: null, min: null, spec: '', purpose: '' };
     function f(id, label, v, type, cls) { return '<div class="' + (cls || '') + '"><label class="text-xs text-gray-500">' + label + '</label><input id="' + id + '" type="' + (type || 'text') + '" step="any" value="' + esc(v === null || v === undefined ? '' : v) + '" class="' + INPUT + '"></div>'; }
     modal(row ? 'แก้ไขวัสดุ ' + esc(i.id) : 'เพิ่มวัสดุใหม่', '<div class="grid grid-cols-2 gap-3">' +
       f('bName', 'ชื่อรายการ', i.name, 'text', 'col-span-2') + f('bCpn', 'รหัส CPN', i.cpn) + f('bP151', 'รหัส P151', i.p151) + f('bUnit', 'หน่วยนับ', i.unit) + f('bRate', 'rate/เดือน', i.rate, 'number') + f('bMin', 'min (จุดสั่งซื้อ)', i.min, 'number') +
-      f('bSpec', 'คุณลักษณะ', i.spec, 'text', 'col-span-2') + '</div>' +
+      '<div class="col-span-2"><label class="text-xs text-gray-500">คุณสมบัติทั่วไป / คุณลักษณะ (หนึ่งบรรทัดต่อหนึ่งข้อ — ใช้ในเอกสารกำหนดคุณลักษณะ)</label><textarea id="bSpec" rows="6" class="' + INPUT + '">' + esc(i.spec) + '</textarea></div>' +
+      '<div class="col-span-2"><label class="text-xs text-gray-500">วัตถุประสงค์ในการใช้งาน (ข้อความต่อจากชื่อรายการ เช่น &quot;ใช้ในงานทันตกรรมเพื่อ…&quot;)</label><textarea id="bPurpose" rows="3" class="' + INPUT + '">' + esc(i.purpose) + '</textarea></div></div>' +
       '<div class="mt-3 flex gap-2"><button type="button" onclick="STK.dbSave(' + row + ')" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึก</button><button type="button" onclick="STK.close()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200">ยกเลิก</button></div>');
   };
   STK.dbSave = async function (row) {
-    var r = await call('stockSaveDb', { row: row || 0, name: $('bName').value, cpn: $('bCpn').value, p151: $('bP151').value, unit: $('bUnit').value, rate: $('bRate').value, min: $('bMin').value, spec: $('bSpec').value });
+    var r = await call('stockSaveDb', { row: row || 0, name: $('bName').value, cpn: $('bCpn').value, p151: $('bP151').value, unit: $('bUnit').value, rate: $('bRate').value, min: $('bMin').value, spec: $('bSpec').value, purpose: $('bPurpose').value });
     if (!r) return;
     if (!r.success) return fail(r.error);
     STK.close(); S.board = null;
