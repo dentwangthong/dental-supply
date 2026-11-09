@@ -49,7 +49,12 @@ const GAS_ADMIN_FUNCS = new Set([
   'stockDeleteSet',
   'stockCheckDocNo',
   'stockRegisterDoc',
-  'stockGetRegister'
+  'stockGetRegister',
+  'stockDeleteDoc',
+  'stockGetTemplate',
+  'stockCheckDocFolders',
+  'stockGetDocFile',
+  'stockSaveItemSpecs'
 ]);
 
 let GAS_ADMIN_PIN = ''; // เก็บในหน่วยความจำเท่านั้น รีเฟรชหน้าแล้วหาย
