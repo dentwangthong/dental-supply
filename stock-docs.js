@@ -16,7 +16,9 @@
   var DOC_SUBJECT = 'ขออนุมัติให้เจ้าหน้าที่รับผิดชอบในการกำหนดรายละเอียดคุณลักษณะเฉพาะของพัสดุและราคากลาง';
   var DOC_TYPE_SPEC = 'รายงานผลกำหนดคุณลักษณะและราคากลาง';
   var DOC_SUBJECT_SPEC = 'รายงานผลการกำหนดรายละเอียดคุณลักษณะเฉพาะของพัสดุและราคากลาง';
-  var TYPE_LABEL = {}; TYPE_LABEL[DOC_TYPE] = 'ฉบับ ๑ แต่งตั้งเจ้าหน้าที่ฯ'; TYPE_LABEL[DOC_TYPE_SPEC] = 'ฉบับ ๒ คุณลักษณะและราคากลาง';
+  var DOC_TYPE_PO = 'ขออนุมัติสั่งซื้อวัสดุทันตกรรม';
+  var DOC_SUBJECT_PO = 'ขออนุมัติสั่งซื้อวัสดุทันตกรรม';
+  var TYPE_LABEL = {}; TYPE_LABEL[DOC_TYPE] = 'ฉบับ ๑ แต่งตั้งเจ้าหน้าที่ฯ'; TYPE_LABEL[DOC_TYPE_SPEC] = 'ฉบับ ๒ คุณลักษณะและราคากลาง'; TYPE_LABEL[DOC_TYPE_PO] = 'ฉบับ ๓ ขออนุมัติสั่งซื้อ';
   var D = { sets: [], reg: [], staff: [], cfg: {}, set: null };
 
   function U() { return STK._; }
@@ -164,8 +166,17 @@
       return p.replace(new RegExp('\\{#' + name + '\\}[\\s\\S]*?\\{/' + name + '\\}'), function () { return t; });
     }).join('');
   }
+  // วนซ้ำทั้งแถวของตาราง: ใส่ {#items} และ {/items} ในเซลล์ใดก็ได้ของแถวเดียวกัน
+  function expandRows(xml, ctx) {
+    return xml.replace(/<w:tr[ >][\s\S]*?<\/w:tr>/g, function (row) {
+      var open = row.match(/\{#([a-z_0-9]+)\}/);
+      if (!open || row.indexOf('{/' + open[1] + '}') < 0) return row;
+      var name = open[1], base = row.split('{#' + name + '}').join('').split('{/' + name + '}').join('');
+      return (ctx[name] || []).map(function (r) { return fillScalars(base, mergeCtx(ctx, r)); }).join('');
+    });
+  }
   function renderXml(xml, ctx) {
-    xml = repairSplitTags(xml);
+    xml = expandRows(repairSplitTags(xml), ctx);
     var re = /<w:p[ >][\s\S]*?<\/w:p>/g, ms = [], m;
     while ((m = re.exec(xml))) ms.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
     var out = '', last = 0, i = 0;
@@ -216,7 +227,7 @@
   // แม่แบบ: อ่านจากโฟลเดอร์ Drive ก่อน (แก้ไฟล์ใน Drive ได้เลย) ถ้าไม่พบใช้ไฟล์สำรองบน GitHub
   async function loadTemplateBytes(kind) {
     var cfg = D.cfg || {};
-    var name = kind === 'spec' ? (cfg.DOC_TPL_SPEC || 'memo_spec_report.docx') : (cfg.DOC_TPL_APPOINT || 'memo_appoint_officer.docx'), reason = 'ตั้งแหล่งแม่แบบเป็น GitHub';
+    var name = kind === 'spec' ? (cfg.DOC_TPL_SPEC || 'memo_spec_report.docx') : (kind === 'po' ? (cfg.DOC_TPL_PO || 'memo_purchase_request.docx') : (cfg.DOC_TPL_APPOINT || 'memo_appoint_officer.docx')), reason = 'ตั้งแหล่งแม่แบบเป็น GitHub';
     if (cfg.DOC_TPL_SOURCE === 'drive') {
       try {
         var r = await gasCall('stockGetTemplate', [name]);
@@ -239,7 +250,7 @@
     entries.forEach(function (e, i) { if (e.name === 'word/document.xml') idx = i; });
     if (idx < 0) throw new Error('แม่แบบไม่มี word/document.xml');
     var xml = new TextDecoder().decode(await entryBytes(entries[idx]));
-    var built = kind === 'spec' ? buildData2(F) : buildData(F);
+    var built = kind === 'spec' ? buildData2(F) : (kind === 'po' ? buildData3(F) : buildData(F));
     xml = fillTemplate(xml, built.ctx);
     var bytes = new TextEncoder().encode(xml);
     entries[idx] = { name: 'word/document.xml', method: 0, time: entries[idx].time, date: entries[idx].date, crc: crc32(bytes), csize: bytes.length, usize: bytes.length, raw: bytes };
@@ -264,6 +275,20 @@
       dir_name: T(F.dir.name), dir_pos: T(F.dir.pos), approve_date: thaiDate(F.approveDate)
     };
     return { ctx: mergeObj(data, { items: rows }), data: data, rows: rows, total: total };
+  }
+  function money2(v) { v = Math.round(Number(v) * 100) / 100; var p = v.toFixed(2).split('.'); return thaiDigits(commas(p[0]) + '.' + p[1]); }
+  // ฉบับที่ ๓ (หนังสือของโรงพยาบาล ขออนุมัติสั่งซื้อ) — จำนวนและมูลค่าตามแผนที่กำหนดไว้ใน "ต้นเรื่อง" (ฉบับที่ ๑)
+  function buildData3(F) {
+    var total = totalOf(F.items);
+    var rows = F.items.map(function (it, i) {
+      return { no: thaiDigits(i + 1), name: T(it.name), qty: plainNum(it.qty), unit: T(it.unit), price: money2(it.price), amount: money2(lineAmount(it)), plan_no: it.planNo ? thaiDigits(it.planNo) : '' };
+    });
+    var ctx = {
+      doc_prefix: F.prefix, doc_no: thaiDigits(F.docNo), doc_date: thaiDate(F.docDate), fy: thaiDigits(F.fy), n_items: plainNum(F.items.length),
+      total: money2(total), total_text: bahtText(total), method: T(F.method), fund: T(F.fund), items: rows,
+      s1_name: T(F.s1.name), s1_pos: T(F.s1.pos), s2_name: T(F.s2.name), s2_pos: T(F.s2.pos), dir_name: T(F.dir.name), dir_pos: T(F.dir.pos)
+    };
+    return { ctx: ctx, total: total };
   }
   // ฉบับที่ ๒ (รายงานผลกำหนดคุณลักษณะและราคากลาง) — "เรื่องเดิม" ใช้ข้อมูลของฉบับที่ ๑ (F.old)
   function buildData2(F) {
@@ -291,7 +316,7 @@
   }
   function fileName(F) {
     var no = String(F.docNo).replace(/[๐-๙]/g, function (c) { return TH_DIG.indexOf(c); }).replace(/[\\\/:*?"<>|\s]+/g, '_');
-    return (F.kind === 'spec' ? 'รายงานผลกำหนดคุณลักษณะ_' : 'ขออนุมัติแต่งตั้ง_') + no + '.docx';
+    return (F.kind === 'spec' ? 'รายงานผลกำหนดคุณลักษณะ_' : (F.kind === 'po' ? 'ขออนุมัติสั่งซื้อ_' : 'ขออนุมัติแต่งตั้ง_')) + no + '.docx';
   }
 
   // =====================================================
@@ -344,7 +369,7 @@
       return '<tr class="border-t hover:bg-gray-50"><td class="p-2 text-xs">' + esc(s.id) + '</td><td class="p-2 text-xs whitespace-nowrap">' + esc(s.created) + '</td><td class="p-2 text-right">' + s.items.length + '</td>' +
         '<td class="p-2 text-right">' + nf(s.total) + '</td><td class="p-2"><span class="px-2 py-0.5 rounded-full text-xs ' + st + '">' + esc(s.status) + '</span></td><td class="p-2 text-xs">' + esc(s.note) + '</td>' +
         '<td class="p-2 whitespace-nowrap"><button type="button" onclick="STK.docOpen(\'' + s.id + '\')" class="text-xs text-blue-600 underline mr-2">ฉบับ ๑</button>' +
-        (has1(s.id) ? '<button type="button" onclick="STK.docOpenSpec(\'' + s.id + '\')" class="text-xs text-indigo-600 underline mr-2">ฉบับ ๒</button>' : '<span class="text-xs text-gray-300 mr-2" title="ต้องออกฉบับที่ ๑ ก่อน">ฉบับ ๒</span>') +
+        (has1(s.id) ? '<button type="button" onclick="STK.docOpenSpec(\'' + s.id + '\')" class="text-xs text-indigo-600 underline mr-2">ฉบับ ๒</button><button type="button" onclick="STK.docOpenPO(\'' + s.id + '\')" class="text-xs text-teal-600 underline mr-2">ฉบับ ๓</button>' : '<span class="text-xs text-gray-300 mr-2" title="ต้องออกฉบับที่ ๑ ก่อน">ฉบับ ๒ ฉบับ ๓</span>') +
         (s.status === 'ออกเอกสารแล้ว' ? '' : '<button type="button" onclick="STK.setDelete(\'' + s.id + '\')" class="text-xs text-red-500 underline">ลบ</button>') + '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="p-4 text-center text-gray-400">ยังไม่มีชุดจัดซื้อ — ไปที่ สั่งซื้อวัสดุ ติ๊กรายการแล้วกด "สร้างชุดจัดซื้อจากที่เลือก"</td></tr>';
     var regs = D.reg.map(function (r) {
@@ -495,10 +520,10 @@
       var el = $('fNoHint'), no = $('fNo') && $('fNo').value.trim();
       if (!el) return;
       if (!no) { el.innerHTML = ''; return; }
-      var full = D.cfg.DOC_PREFIX + no;
+      var full = (D.curType === DOC_TYPE_PO ? D.cfg.DOC_PREFIX3 : D.cfg.DOC_PREFIX) + no;
       try {
         var r = await gasCall('stockCheckDocNo', [D.curType || DOC_TYPE, full]);
-        el.innerHTML = r.exists ? '<span class="text-red-600">เลขที่นี้ถูกใช้แล้ว (' + U().esc(r.regId) + ' · ' + U().esc(TYPE_LABEL[r.type] || r.type) + ' · ' + U().esc(r.docDate) + ') ต้องใช้เลขใหม่ที่ไม่ซ้ำฉบับอื่น</span>' : '<span class="text-green-600">ยังไม่เคยใช้</span>';
+        el.innerHTML = r.skipped ? '<span class="text-gray-500">ไม่ตรวจเลขซ้ำ (ไม่มีตัวเลขในเลขที่)</span>' : r.exists ? '<span class="text-red-600">เลขที่นี้ถูกใช้แล้ว (' + U().esc(r.regId) + ' · ' + U().esc(TYPE_LABEL[r.type] || r.type) + ' · ' + U().esc(r.docDate) + ') ต้องใช้เลขใหม่ที่ไม่ซ้ำฉบับอื่น</span>' : '<span class="text-green-600">ยังไม่เคยใช้</span>';
       } catch (e) { el.innerHTML = ''; }
     }, 400);
   }
@@ -554,9 +579,9 @@
         allowDup = true;
       }
       var blob = await buildDocx(F);              // สร้างไฟล์ก่อน ถ้าพลาดจะยังไม่บันทึกลงทะเบียน
-      var built = F.kind === 'spec' ? buildData2(F) : buildData(F);
+      var built = F.kind === 'spec' ? buildData2(F) : (F.kind === 'po' ? buildData3(F) : buildData(F));
       var payload = { type: type, docNo: thaiDigits(full), docDate: thaiDate(F.docDate), subject: subject, setId: D.set ? D.set.id : '', nItems: F.items.length,
-        total: built.total, officer: F.officer.name, s1: (F.s1 || {}).name || '', s2: (F.s2 || {}).name || '', dir: F.dir.name, fund: F.fund || F.old.fund, method: F.method || F.old.method,
+        total: built.total, officer: ((F.officer || F.s1) || {}).name || '', s1: (F.s1 || {}).name || '', s2: (F.s2 || {}).name || '', dir: F.dir.name, fund: F.fund || F.old.fund, method: F.method || F.old.method,
         data: JSON.stringify(F), allowDuplicate: allowDup };
       var saveFile = D.cfg && D.cfg.DOC_SAVE_FILES === 'Y';
       if (saveFile) { payload.fileName = fileName(F); payload.fileBase64 = await blobToB64(blob); }
@@ -672,6 +697,72 @@
   };
 
   // =====================================================
+  // 6c) ฉบับที่ ๓: ขออนุมัติสั่งซื้อวัสดุทันตกรรม (หนังสือของโรงพยาบาล)
+  // =====================================================
+  STK.docOpenPO = async function (setId) {
+    var u = U();
+    var res = await Promise.all([u.call('stockGetSets'), u.call('stockGetRegister'), u.call('stockGetStaff'), u.call('stockGetDb'), u.call('stockGetPlan')]);
+    if (!res[0] || !res[1] || !res[2] || !res[3] || !res[4]) return;
+    D.sets = res[0]; D.reg = res[1]; D.staff = res[2].staff; D.cfg = res[2].cfg;
+    var set = D.sets.filter(function (x) { return x.id === setId; })[0];
+    if (!set) return u.fail('ไม่พบชุดจัดซื้อ ' + setId);
+    var reg1 = D.reg.filter(function (r) { return r.setId === setId && r.type === DOC_TYPE && r.status !== 'ลบแล้ว' && r.data; })[0];
+    if (!reg1) return u.fail('ชุดนี้ยังไม่มีเอกสารฉบับที่ ๑ (หรือถูกลบแล้ว) ต้องออกฉบับที่ ๑ ก่อน');
+    var F1 = JSON.parse(reg1.data);
+    var dbById = {}; res[3].items.forEach(function (i) { dbById[i.id] = i; });
+    var planNo = {}; res[4].rows.forEach(function (r) { planNo[r.code] = r.no; });
+    var byName = {}; ((u.S.board && u.S.board.items) || []).forEach(function (i) { byName[i.name] = i.id; });
+    D.set = set; D.curType = DOC_TYPE_PO;
+    D.po = { F1: F1, items: F1.items.map(function (it) {
+      var id = it.itemId || byName[it.name] || '', p151 = (dbById[id] || {}).p151 || '';
+      return { itemId: id, name: it.name, qty: it.qty, unit: it.unit, price: it.price, planNo: planNo[p151] || '' };
+    }) };
+    var esc = u.esc, today = u.today(), cfg = D.cfg;
+    var card = function (title, inner) { return '<div class="border rounded-xl bg-white p-4 mb-4"><div class="text-sm font-medium text-gray-700 border-b pb-2 mb-3">' + title + '</div>' + inner + '</div>'; };
+    var lab = function (t) { return '<label class="text-xs text-gray-500">' + t + '</label>'; };
+    var inp = function (id, v, ph, type) { return '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '" class="' + u.INPUT + '">'; };
+    var total = totalOf(D.po.items);
+    var rows = D.po.items.map(function (it, i) {
+      return '<tr class="border-t"><td class="p-2">' + (i + 1) + '</td><td class="p-2">' + esc(it.name) + '</td><td class="p-2 text-right whitespace-nowrap">' + u.nf(it.qty) + ' ' + esc(it.unit) + '</td><td class="p-2 text-right">' + u.nf(it.price) + '</td><td class="p-2 text-right">' + u.nf(lineAmount(it)) + '</td><td class="p-2 text-center">' + (it.planNo ? esc(it.planNo) : '<span class="text-gray-300">-</span>') + '</td></tr>';
+    }).join('');
+    u.body('<div class="max-w-4xl"><div class="flex items-center justify-between mb-3"><h3 class="text-lg font-medium"><i class="fa-solid fa-file-word text-blue-500 mr-2"></i>' + esc(DOC_TYPE_PO) + '<span class="text-sm text-gray-400 ml-2">ชุด ' + esc(set.id) + ' · หนังสือของโรงพยาบาล</span></h3>' +
+      '<button type="button" onclick="STK.go(\'docs\')" class="' + u.BTN + 'bg-gray-100 hover:bg-gray-200">← กลับ</button></div>' +
+      card('วรรคที่ ๑ · หัวบันทึกข้อความ (เลขที่ของโรงพยาบาล)', '<p class="text-xs text-gray-500 mb-2">เรื่อง: ' + esc(DOC_SUBJECT_PO) + '</p><div class="grid grid-cols-1 md:grid-cols-2 gap-3"><div>' + lab('เลขที่หนังสือของโรงพยาบาล — พิมพ์ต่อจาก <b>' + esc(cfg.DOC_PREFIX3) + '</b> (เลขลำดับ หรือข้อความ เช่น พิเศษ)') + inp('fNo', '', 'เช่น พิเศษ หรือ 245') + '<div id="fNoHint" class="text-xs mt-1"></div></div><div>' + lab('วันที่ (หัวเอกสาร)') + inp('fDate', today, '', 'date') + '</div></div>') +
+      card('วรรคที่ ๒ · ต้นเรื่อง (รายการและมูลค่าตามแผน ดึงจากฉบับที่ ๑ ลงวันที่ ' + esc(thaiDate(F1.docDate)) + ')', '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr><th class="' + u.TH + '">ที่</th><th class="' + u.TH + '">รายการ</th><th class="' + u.TH + '">จำนวน</th><th class="' + u.TH + '">ราคา/หน่วย</th><th class="' + u.TH + '">เป็นเงิน</th><th class="' + u.TH + '">แผนจัดซื้อ ลำดับที่</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+        '<div class="mt-3 p-2 rounded-lg bg-blue-50 text-sm text-blue-900">รวม ' + D.po.items.length + ' รายการ เป็นเงิน <b>' + u.nf(total) + '</b> บาท (' + bahtText(total) + ') — ล็อกตามฉบับที่ ๑ ไม่ต้องกรอกใหม่</div>' +
+        '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3"><div>' + lab('แหล่งเงิน (ข้อความต่อจาก "จาก")') + inp('fFund', F1.fund) + '</div><div>' + lab('วิธีจัดซื้อ (ต่อจาก "ด้วยวิธี")') + inp('fMethod', F1.method) + '</div><div>' + lab('ปีงบประมาณ (พ.ศ.)') + inp('fFy', F1.fy) + '</div></div>') +
+      card('วรรคที่ ๓ · ผู้ลงนาม (ใช้คนเดียวกับฉบับที่ ๑ แก้ได้)', [['S1', 'เจ้าหน้าที่', F1.s1], ['S2', 'หัวหน้าเจ้าหน้าที่', F1.s2], ['Dir', 'ผู้อำนวยการ (ทราบ / อนุมัติ)', F1.dir]].map(function (x) {
+        return '<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2"><div>' + lab(x[1] + ' — ชื่อ-สกุล') + inp('f' + x[0] + 'Name', x[2].name) + '</div><div>' + lab('ตำแหน่ง') + inp('f' + x[0] + 'Pos', x[2].pos) + '</div></div>';
+      }).join('')) +
+      '<div class="flex flex-wrap gap-2"><button type="button" id="fGen3" onclick="STK.docGeneratePO()" class="' + u.BTN + 'bg-blue-500 text-white hover:bg-blue-600"><i class="fa-solid fa-file-arrow-down mr-1"></i>สร้างไฟล์ Word (.docx)</button></div></div>');
+    $('fNo').addEventListener('input', docNoHint);
+  };
+  function readFormPO() {
+    var v = function (id) { return $(id).value.trim(); }, F1 = D.po.F1;
+    return {
+      kind: 'po', prefix: D.cfg.DOC_PREFIX3, docNo: v('fNo'), docDate: v('fDate'), fy: v('fFy'), fund: v('fFund'), method: v('fMethod'),
+      items: D.po.items.map(function (it) { return { itemId: it.itemId, name: it.name, qty: it.qty, unit: it.unit, price: it.price, planNo: it.planNo }; }),
+      s1: { name: v('fS1Name'), pos: v('fS1Pos') }, s2: { name: v('fS2Name'), pos: v('fS2Pos') }, dir: { name: v('fDirName'), pos: v('fDirPos') },
+      old: { fund: F1.fund, method: F1.method }
+    };
+  }
+  function validatePO(F) {
+    var errs = [];
+    if (!F.docNo) errs.push('ใส่เลขที่หนังสือของโรงพยาบาล (เลขลำดับ หรือข้อความ เช่น พิเศษ)');
+    if (!F.docDate) errs.push('เลือกวันที่หัวเอกสาร');
+    if (!/^\d{4}$/.test(F.fy)) errs.push('ปีงบประมาณต้องเป็น พ.ศ. 4 หลัก');
+    if (!F.fund) errs.push('ใส่แหล่งเงิน');
+    if (!F.method) errs.push('ใส่วิธีจัดซื้อ');
+    F.items.forEach(function (it, i) { if (!(it.price > 0) || !(it.qty > 0)) errs.push('บรรทัดที่ ' + (i + 1) + ' (' + it.name + '): ไม่มีราคาหรือจำนวนจากฉบับที่ ๑'); });
+    [['s1', 'เจ้าหน้าที่'], ['s2', 'หัวหน้าเจ้าหน้าที่'], ['dir', 'ผู้อำนวยการ']].forEach(function (p) { if (!F[p[0]].name || !F[p[0]].pos) errs.push('ใส่ชื่อและตำแหน่งของ ' + p[1]); });
+    return errs;
+  }
+  STK.docGeneratePO = function () {
+    var F = readFormPO();
+    return runGenerate(F, validatePO(F), DOC_TYPE_PO, DOC_SUBJECT_PO, 'fGen3');
+  };
+
+  // =====================================================
   // 7) ตั้งค่า: ทะเบียนเจ้าหน้าที่ + ผู้ลงนาม + ค่าเริ่มต้นเอกสาร
   // =====================================================
   STK.renderStaffSection = async function () {
@@ -694,21 +785,24 @@
       '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"><div><label class="text-xs text-gray-500">ส่วนหน้าเลขที่หนังสือ</label><input id="cfPrefix" value="' + esc(cfg.DOC_PREFIX) + '" class="' + u.INPUT + '"></div>' +
       '<div><label class="text-xs text-gray-500">แหล่งเงินเริ่มต้น</label><input id="cfFund" value="' + esc(cfg.DOC_FUND) + '" class="' + u.INPUT + '"></div>' +
       '<div><label class="text-xs text-gray-500">วิธีจัดซื้อเริ่มต้น</label><input id="cfMethod" value="' + esc(cfg.DOC_METHOD) + '" class="' + u.INPUT + '"></div></div>' +
-      '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"><div><label class="text-xs text-gray-500">รหัสโฟลเดอร์ Drive เก็บแม่แบบ</label><input id="cfTplFolder" value="' + esc(cfg.DOC_TEMPLATE_FOLDER_ID) + '" class="' + u.INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">รหัสโฟลเดอร์ Drive เก็บไฟล์เอกสาร</label><input id="cfOutFolder" value="' + esc(cfg.DOC_OUTPUT_FOLDER_ID) + '" class="' + u.INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">ชื่อไฟล์แม่แบบ ฉบับที่ ๑ (ขออนุมัติแต่งตั้งเจ้าหน้าที่ฯ)</label><input id="cfTplName" value="' + esc(cfg.DOC_TPL_APPOINT) + '" class="' + u.INPUT + '"></div></div>' +
-      '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"><div><label class="text-xs text-gray-500">ชื่อไฟล์แม่แบบ ฉบับที่ ๒ (รายงานผลคุณลักษณะและราคากลาง)</label><input id="cfTplSpec" value="' + esc(cfg.DOC_TPL_SPEC) + '" class="' + u.INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">แหล่งไฟล์แม่แบบ</label><select id="cfTplSource" class="' + u.INPUT + '"><option value="github"' + (cfg.DOC_TPL_SOURCE === 'drive' ? '' : ' selected') + '>GitHub (โฟลเดอร์ templates)</option><option value="drive"' + (cfg.DOC_TPL_SOURCE === 'drive' ? ' selected' : '') + '>Drive ก่อน แล้วสำรอง GitHub</option></select></div>' +
-      '<label class="text-sm self-end pb-2"><input type="checkbox" id="cfThai"' + (cfg.DOC_THAI_DIGITS === 'N' ? '' : ' checked') + '> แปลงเลขอารบิกในชื่อวัสดุและข้อความเป็นเลขไทยด้วย</label>' +
-      '<label class="text-sm self-end pb-2"><input type="checkbox" id="cfSaveFiles"' + (cfg.DOC_SAVE_FILES === 'Y' ? ' checked' : '') + '> เก็บไฟล์ .docx ลงโฟลเดอร์ Drive ด้วย (ปกติไม่ต้อง เพราะสร้างซ้ำจากทะเบียนได้)</label></div>' +
-      '<div class="flex flex-wrap gap-2"><button type="button" onclick="STK.docCfgSave()" class="' + u.BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึกผู้ลงนามและค่าเริ่มต้นเอกสาร</button>' +
-      '<button type="button" onclick="STK.folderCheck()" class="' + u.BTN + 'bg-gray-100 hover:bg-gray-200"><i class="fa-brands fa-google-drive mr-1"></i>ตรวจโฟลเดอร์ Drive</button></div>' +
+      '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3"><div><label class="text-xs text-gray-500">ไฟล์แม่แบบ ฉบับที่ ๑ (ใน templates/ บน GitHub)</label><input id="cfTplName" value="' + esc(cfg.DOC_TPL_APPOINT) + '" class="' + u.INPUT + '"></div>' +
+      '<div><label class="text-xs text-gray-500">ไฟล์แม่แบบ ฉบับที่ ๒ (ใน templates/ บน GitHub)</label><input id="cfTplSpec" value="' + esc(cfg.DOC_TPL_SPEC) + '" class="' + u.INPUT + '"></div>' +
+      '<div><label class="text-xs text-gray-500">ไฟล์แม่แบบ ฉบับที่ ๓ (ใน templates/ บน GitHub)</label><input id="cfTplPo" value="' + esc(cfg.DOC_TPL_PO) + '" class="' + u.INPUT + '"></div>' +
+      '<div><label class="text-xs text-gray-500">ส่วนหน้าเลขที่หนังสือของโรงพยาบาล (ฉบับที่ ๓)</label><input id="cfPrefix3" value="' + esc(cfg.DOC_PREFIX3) + '" class="' + u.INPUT + '"></div>' +
+      '<label class="text-sm self-end pb-2"><input type="checkbox" id="cfThai"' + (cfg.DOC_THAI_DIGITS === 'N' ? '' : ' checked') + '> แปลงเลขอารบิกในชื่อวัสดุและข้อความเป็นเลขไทยด้วย</label></div>' +
+      '<details class="mb-3 border rounded-lg p-3 bg-gray-50"><summary class="text-sm text-gray-600 cursor-pointer select-none">ขั้นสูง: ตัวเลือก Google Drive (ไม่ต้องใช้ตอนนี้ — เก็บไว้เผื่ออนาคต)</summary>' +
+      '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3"><div><label class="text-xs text-gray-500">แหล่งไฟล์แม่แบบ</label><select id="cfTplSource" class="' + u.INPUT + '"><option value="github"' + (cfg.DOC_TPL_SOURCE === 'drive' ? '' : ' selected') + '>GitHub (โฟลเดอร์ templates) — ใช้อยู่</option><option value="drive"' + (cfg.DOC_TPL_SOURCE === 'drive' ? ' selected' : '') + '>Drive ก่อน แล้วสำรอง GitHub</option></select></div>' +
+      '<div><label class="text-xs text-gray-500">รหัสโฟลเดอร์ Drive เก็บแม่แบบ</label><input id="cfTplFolder" value="' + esc(cfg.DOC_TEMPLATE_FOLDER_ID) + '" class="' + u.INPUT + '"></div>' +
+      '<div><label class="text-xs text-gray-500">รหัสโฟลเดอร์ Drive เก็บไฟล์เอกสาร</label><input id="cfOutFolder" value="' + esc(cfg.DOC_OUTPUT_FOLDER_ID) + '" class="' + u.INPUT + '"></div></div>' +
+      '<label class="text-sm block mt-3"><input type="checkbox" id="cfSaveFiles"' + (cfg.DOC_SAVE_FILES === 'Y' ? ' checked' : '') + '> เก็บไฟล์ .docx ลงโฟลเดอร์ Drive ด้วย (ปกติไม่ต้อง เพราะสร้างซ้ำจากทะเบียนได้)</label>' +
+      '<button type="button" onclick="STK.folderCheck()" class="mt-3 ' + u.BTN + 'bg-gray-100 hover:bg-gray-200"><i class="fa-brands fa-google-drive mr-1"></i>ตรวจโฟลเดอร์ Drive</button></details>' +
+      '<button type="button" onclick="STK.docCfgSave()" class="' + u.BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึกผู้ลงนามและค่าเริ่มต้นเอกสาร</button>' +
       '<p class="text-xs text-gray-400 mt-2">ถ้ามีการโยกย้าย: เพิ่มคนใหม่ → เลือกเป็นผู้ลงนามแล้วบันทึก → ปิดใช้งานคนเดิม เอกสารที่ออกไปแล้วยังเก็บชื่อเดิมไว้ในทะเบียนคุมเอกสาร</p>';
   };
   STK.docCfgSave = async function () {
     var u = U();
     var r = await u.call('stockSaveDocConfig', { SIGN_S1: $('cfS1').value, SIGN_S2: $('cfS2').value, SIGN_DIR: $('cfDir').value, DOC_PREFIX: $('cfPrefix').value, DOC_FUND: $('cfFund').value, DOC_METHOD: $('cfMethod').value,
-      DOC_TEMPLATE_FOLDER_ID: $('cfTplFolder').value, DOC_OUTPUT_FOLDER_ID: $('cfOutFolder').value, DOC_TPL_APPOINT: $('cfTplName').value, DOC_TPL_SPEC: $('cfTplSpec').value, DOC_SAVE_FILES: $('cfSaveFiles').checked ? 'Y' : 'N', DOC_TPL_SOURCE: $('cfTplSource').value, DOC_THAI_DIGITS: $('cfThai').checked ? 'Y' : 'N' });
+      DOC_TEMPLATE_FOLDER_ID: $('cfTplFolder').value, DOC_OUTPUT_FOLDER_ID: $('cfOutFolder').value, DOC_TPL_APPOINT: $('cfTplName').value, DOC_TPL_SPEC: $('cfTplSpec').value, DOC_TPL_PO: $('cfTplPo').value, DOC_PREFIX3: $('cfPrefix3').value, DOC_SAVE_FILES: $('cfSaveFiles').checked ? 'Y' : 'N', DOC_TPL_SOURCE: $('cfTplSource').value, DOC_THAI_DIGITS: $('cfThai').checked ? 'Y' : 'N' });
     if (!r) return;
     if (!r.success) return u.fail(r.error);
     await u.toast('บันทึกแล้ว');
