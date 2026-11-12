@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Dental Supply & Repair</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Prompt', sans-serif;
+      background-color: #f8fafc;
+      background-image: radial-gradient(circle at 15% 10%, #eef6ff 0%, transparent 45%),
+                        radial-gradient(circle at 85% 90%, #fdf2f8 0%, transparent 45%);
+      color: #334155;
+    }
+    .bg-pastel-pink { background-color: #f472b6; color: #fff; }
+    .bg-pastel-blue { background-color: #3b82f6; color: #fff; }
+    .bg-pastel-green { background-color: #10b981; color: #fff; }
+    .text-pastel-blue { color: #3b82f6; }
+    .text-pastel-pink { color: #ec4899; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      border-radius: 20px;
+      box-shadow: 0 10px 35px -5px rgba(15, 23, 42, 0.05), 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+    }
+    .nav-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #64748b;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid transparent;
+    }
+    .nav-pill:hover {
+      background: rgba(241, 245, 249, 0.9);
+      color: #1e293b;
+    }
+    .nav-pill.active-blue {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(59, 130, 246, 0.12);
+    }
+    .nav-pill.active-green {
+      background: #ecfdf5;
+      color: #047857;
+      border-color: #a7f3d0;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.12);
+    }
+    .nav-pill.active-pink {
+      background: #fdf2f8;
+      color: #be185d;
+      border-color: #fbcfe8;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(236, 72, 153, 0.12);
+    }
+    .nav-pill.active-slate {
+      background: #1e293b;
+      color: #ffffff;
+      border-color: #0f172a;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+    }
+    .navbar-glass {
+      background: rgba(248, 250, 252, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .navbar-hidden {
+      transform: translateY(-100%);
+    }
+    #loader { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.8); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; }
+    .spinner { border: 4px solid #e2e8f0; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="min-h-screen pb-10">
+  <div id="loader"><div class="spinner mb-2"></div><span class="text-sm text-gray-500">กำลังประมวลผล...</span></div>
+
+  <!-- Smart Sticky Header & Navigation (ซ่อนอัตโนมัติเมื่อ Scroll Down / แสดงเมื่อ Scroll Up) -->
+  <header id="smartNavbar" class="sticky top-0 z-50 transition-transform duration-300 ease-in-out navbar-glass border-b border-slate-200/80 shadow-sm">
+    <div id="navInner" class="max-w-4xl mx-auto px-4 pt-3.5 pb-2.5 transition-all duration-300">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-2 mb-2.5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-200">
+            <i class="fa-solid fa-tooth text-lg"></i>
+          </div>
+          <div class="text-left">
+            <div class="flex items-center gap-2">
+              <h1 class="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight leading-none">Dental Management</h1>
+              <span class="px-2 py-0.5 text-[11px] font-semibold bg-blue-100 text-blue-700 rounded-full border border-blue-200">v2.0</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">ระบบเบิกวัสดุ คลังเวชภัณฑ์ และแจ้งซ่อม แผนกทันตกรรม</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex flex-wrap justify-center sm:justify-start gap-1.5 pt-1">
+        <button onclick="switchTab('reqTab', 'blue')" id="btn-reqTab" class="nav-pill active-blue">
+          <i class="fa-solid fa-box-open text-xs"></i> ส่งเบิกวัสดุ
+        </button>
+        <button onclick="switchTab('dlTab', 'green')" id="btn-dlTab" class="nav-pill">
+          <i class="fa-solid fa-magnifying-glass text-xs"></i> รับวัสดุ (ค้นหา)
+        </button>
+        <button onclick="switchTab('repairTab', 'pink')" id="btn-repairTab" class="nav-pill">
+          <i class="fa-solid fa-screwdriver-wrench text-xs"></i> แจ้งซ่อม
+        </button>
+        <button onclick="switchTab('adminTab', 'gray')" id="btn-adminTab" class="nav-pill">
+          <i class="fa-solid fa-lock text-xs"></i> Admin / คลังวัสดุ
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ปุ่มลอยสำหรับเรียกเมนูบนกลับมาทันทีเมื่อถูกซ่อน -->
+  <button id="floatingTopBtn" type="button" onclick="forceShowNavbar()" class="fixed top-3 right-4 z-40 hidden items-center gap-1.5 bg-slate-800/90 hover:bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg transition-all">
+    <i class="fa-solid fa-chevron-up text-[10px]"></i> แสดงเมนูบน
+  </button>
+
+  <main id="mainContainer" class="max-w-4xl mx-auto pt-6 px-4 transition-all duration-300">
+    <!-- 1. ส่งเบิกวัสดุ -->
+    <div id="reqTab" class="tab-content glass-card p-6">
+      <div class="flex flex-wrap justify-between items-center gap-2 mb-5 pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <i class="fa-solid fa-box-open"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-slate-800 leading-tight">ฟอร์มส่งเบิกวัสดุทันตกรรม</h2>
+            <p class="text-xs text-slate-400">กรอกรหัสหน่วยบริการ 5 หลัก เพื่อโหลดรายการโปรดและข้อมูลผู้ลงนามอัตโนมัติ</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- แถบแจ้งเมื่ออยู่ในโหมดแก้ไขรายการเดิม -->
+      <div id="editBanner" class="hidden mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 flex flex-wrap items-center justify-between gap-2">
+        <span><i class="fa-solid fa-pen-to-square mr-1"></i><span id="editBannerText"></span></span>
+        <button type="button" onclick="cancelEdit()" class="text-xs px-3 py-1 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 font-medium">ยกเลิกการแก้ไข</button>
+      </div>
+
+      <form id="reqForm" onsubmit="submitReq(event)">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 rounded-xl bg-slate-50/80 border border-slate-200/70">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1"><i class="fa-solid fa-hospital-user text-blue-500 mr-1"></i>รหัสหน่วยบริการ (5 หลัก)</label>
+            <input type="text" id="reqUnitCode" oninput="checkUnit('reqUnitCode', 'reqUnitName')" class="w-full border border-slate-200 bg-white rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-300" placeholder="เช่น 07595" required>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1"><i class="fa-solid fa-building text-slate-400 mr-1"></i>ชื่อหน่วยเบิก</label>
+            <input type="text" id="reqUnitName" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm bg-slate-100/80 text-slate-600 font-medium" placeholder="แสดงชื่อหน่วยอัตโนมัติ" readonly required>
+          </div>
+        </div>
+
+        <div class="flex bg-slate-100 p-1 rounded-xl mb-4 border border-slate-200/60">
+          <button type="button" id="btnModeEmergency" onclick="setReqMode('emergency')" class="flex-1 py-2 text-sm font-medium rounded-lg bg-white text-slate-800 shadow-sm transition-all duration-200">
+            <i class="fa-solid fa-cart-shopping mr-1 text-blue-600"></i> เบิกวัสดุออนไลน์ (เลือกผ่านเว็บ)
+          </button>
+          <button type="button" id="btnModeUpload" onclick="setReqMode('upload')" class="flex-1 py-2 text-sm font-medium rounded-lg text-slate-500 hover:text-slate-700 transition-all duration-200">
+            <i class="fa-solid fa-file-excel mr-1"></i> อัปโหลดไฟล์ Excel
+          </button>
+        </div>
+
+        <div id="reqModeUpload" class="hidden">
+          <div class="mb-5 p-5 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-center">
+            <label class="block text-sm font-medium text-slate-700 mb-2">แนบไฟล์ Excel เบิกวัสดุ (.xls, .xlsx)</label>
+            <input type="file" id="reqFile" accept=".xls,.xlsx" class="w-full max-w-md mx-auto border bg-white rounded-lg px-4 py-2 text-sm">
+          </div>
+          <button type="submit" class="w-full bg-blue-600 text-white rounded-xl py-2.5 hover:bg-blue-700 transition shadow-sm font-medium">ส่งข้อมูลเบิกวัสดุ</button>
+        </div>
+
+        <div id="reqModeEmergency" class="block">
+          <!-- ผู้ลงนามในใบเบิก (แถบพับเก็บได้ 1 บรรทัด ประหยัดพื้นที่แนวตั้ง) -->
+          <div id="signerCard" class="border border-slate-200 rounded-xl bg-white p-3.5 shadow-sm mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 inline-flex items-center justify-center">
+                  <i class="fa-solid fa-file-signature text-xs"></i>
+                </span>
+                <span class="font-semibold text-slate-700">ผู้ลงนามในใบเบิก</span>
+                <span id="signerSummaryText" class="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                  ผู้รับของ: - · ผอ.: -
+                </span>
+              </div>
+              <button type="button" onclick="toggleSignerBox()" id="btnToggleSigner" class="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-lg transition">
+                <i class="fa-solid fa-chevron-down mr-1" id="signerChevron"></i>เปิด/แก้ไข ข้อมูลผู้ลงนาม
+              </button>
+            </div>
+
+            <div id="signerBody" class="hidden mt-3 pt-3 border-t border-slate-100">
+              <p class="text-xs text-slate-400 mb-3">ขึ้นอัตโนมัติตามหน่วยบริการ แก้ไขได้ และเมื่อกดส่งเบิก ระบบจะบันทึกทับค่าเดิมของหน่วยนี้</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs mb-1 text-slate-500">ชื่อผู้รับของ</label>
+                  <input type="text" id="st_recvName" oninput="updateSignerSummary()" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                  <label class="block text-xs mb-1 text-slate-500">ตำแหน่งผู้รับของ</label>
+                  <input type="text" id="st_recvPos" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                  <label class="block text-xs mb-1 text-slate-500">ชื่อผู้อำนวยการ รพ.สต.</label>
+                  <input type="text" id="st_dirName" oninput="updateSignerSummary()" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+                <div>
+                  <label class="block text-xs mb-1 text-slate-500">ตำแหน่งผู้อำนวยการ รพ.สต.</label>
+                  <input type="text" id="st_dirPos" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                </div>
+              </div>
+              <details class="mt-3">
+                <summary class="text-xs text-blue-600 font-medium cursor-pointer select-none">ผู้ลงนามอื่นๆ (สาธารณสุขอำเภอ / เจ้าหน้าที่ผู้ควบคุมคลังพัสดุ / หัวหน้า)</summary>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label class="block text-xs mb-1 text-slate-500">ชื่อสาธารณสุขอำเภอ</label>
+                    <input type="text" id="st_distName" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs mb-1 text-slate-500">ตำแหน่งสาธารณสุขอำเภอ</label>
+                    <input type="text" id="st_distPos" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs mb-1 text-slate-500">ชื่อเจ้าหน้าที่ผู้ควบคุมคลังพัสดุ</label>
+                    <input type="text" id="st_ctrlName" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs mb-1 text-slate-500">ตำแหน่งเจ้าหน้าที่ผู้ควบคุมคลังพัสดุ</label>
+                    <input type="text" id="st_ctrlPos" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs mb-1 text-slate-500">ชื่อหัวหน้าเจ้าหน้าที่ผู้ควบคุมคลังพัสดุ</label>
+                    <input type="text" id="st_headName" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs mb-1 text-slate-500">ตำแหน่งหัวหน้าเจ้าหน้าที่ผู้ควบคุมคลังพัสดุ</label>
+                    <input type="text" id="st_headPos" class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="border border-slate-200 rounded-xl bg-white p-4 shadow-sm">
+              <div class="relative mb-3">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400"></i>
+                <input type="text" id="emSearch" onkeyup="filterEmergencyList()" placeholder="ค้นหาชื่อวัสดุ หรือรหัส DN/DT..." class="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200">
+              </div>
+              <div class="flex gap-2 mb-3">
+                <button type="button" id="btnFavOnly" onclick="toggleFavOnly()" class="flex-1 py-1.5 text-xs font-medium rounded-lg bg-slate-50 text-slate-600 border border-slate-200">
+                  <i class="fa-solid fa-star mr-1"></i>เฉพาะรายการโปรด
+                </button>
+                <button type="button" onclick="addAllFavorites()" class="flex-1 py-1.5 text-xs font-medium rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100">
+                  <i class="fa-solid fa-cart-plus mr-1"></i>เพิ่มโปรดทั้งหมดลงตะกร้า
+                </button>
+              </div>
+              <div id="emList" class="overflow-y-auto h-[320px] space-y-2 pr-1 custom-scrollbar">
+                <p class="text-center text-gray-400 text-sm py-8"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังโหลดรายการ...</p>
+              </div>
+            </div>
+
+            <div class="border border-blue-200/80 rounded-xl bg-gradient-to-b from-blue-50/70 to-indigo-50/40 p-4 shadow-sm flex flex-col h-full">
+              <div class="flex items-center justify-between mb-3 border-b border-blue-200/70 pb-2.5">
+                <h3 class="font-semibold text-slate-700"><i class="fa-solid fa-cart-shopping text-blue-600 mr-1.5"></i>รายการที่ต้องการเบิก</h3>
+                <span id="emCartBadge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-600 text-white">0 รายการ</span>
+              </div>
+
+              <div id="emCart" class="overflow-y-auto flex-1 mb-4 space-y-2 min-h-[240px] max-h-[300px] pr-1 custom-scrollbar">
+                <p class="text-center text-gray-400 text-sm py-8">ยังไม่มีรายการที่เลือก</p>
+              </div>
+
+              <button type="submit" id="btnSubmitEm" class="w-full bg-emerald-600 text-white rounded-xl py-2.5 hover:bg-emerald-700 transition shadow-sm font-medium mt-auto">
+                <i class="fa-solid fa-paper-plane mr-1"></i> <span id="btnSubmitEmText">ส่งใบเบิกวัสดุออนไลน์</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- 2. รับวัสดุ (ค้นหา) -->
+    <div id="dlTab" class="tab-content glass-card p-6 hidden">
+      <div class="flex items-center gap-2.5 mb-5 pb-3 border-b border-slate-100">
+        <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <i class="fa-solid fa-download"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-slate-800 leading-tight">ค้นหาและรับวัสดุ</h2>
+          <p class="text-xs text-slate-400">ตรวจสอบสถานะใบเบิก พิมพ์ใบเบิกย้อนหลัง โหลดไฟล์ .xls และแก้ไขรายการล่าสุด</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 rounded-xl bg-emerald-50/40 border border-emerald-100">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">รหัสหน่วยบริการ</label>
+          <div class="flex gap-2">
+            <input type="text" id="dlUnitCode" oninput="checkUnit('dlUnitCode', 'dlUnitName')" class="w-full border border-slate-200 bg-white rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200" placeholder="รหัสหน่วยบริการ 5 หลัก" required>
+            <button type="button" onclick="searchMaterialFiles()" class="bg-emerald-600 text-white px-5 rounded-xl hover:bg-emerald-700 transition shadow-sm font-medium text-sm whitespace-nowrap"><i class="fa-solid fa-magnifying-glass mr-1"></i>ค้นหา</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อหน่วยเบิก</label>
+          <input type="text" id="dlUnitName" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm bg-slate-100/80 text-slate-600" readonly>
+        </div>
+      </div>
+      <div id="downloadResultsContainer" class="mt-5 overflow-x-auto">
+        <p class="text-slate-400 text-center py-6 text-sm border border-dashed border-slate-200 rounded-xl">กรอกรหัสหน่วยบริการแล้วกดปุ่มค้นหา</p>
+      </div>
+    </div>
+
+    <!-- 3. แจ้งซ่อม -->
+    <div id="repairTab" class="tab-content glass-card p-6 hidden">
+      <div class="flex items-center gap-2.5 mb-5 pb-3 border-b border-slate-100">
+        <div class="w-9 h-9 rounded-lg bg-pink-50 text-pink-600 flex items-center justify-center">
+          <i class="fa-solid fa-screwdriver-wrench"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-slate-800 leading-tight">ฟอร์มแจ้งซ่อมครุภัณฑ์ / อุปกรณ์ทันตกรรม</h2>
+          <p class="text-xs text-slate-400">ระบุอาการเสียให้ละเอียดเพื่อให้ช่างเตรียมอะไหล่และเข้าตรวจสอบได้รวดเร็ว</p>
+        </div>
+      </div>
+      <form id="repairForm" onsubmit="submitRepair(event)">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">รหัสหน่วยบริการ</label>
+            <input type="text" id="repUnitCode" oninput="checkUnit('repUnitCode', 'repUnitName')" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" placeholder="รหัสหน่วยบริการ 5 หลัก" required>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่อหน่วยเบิก</label>
+            <input type="text" id="repUnitName" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm bg-slate-100/80 text-slate-600" readonly required>
+          </div>
+        </div>
+        <div class="mb-6">
+          <label class="block text-xs font-semibold text-slate-600 mb-1">อาการ / ปัญหา</label>
+          <textarea id="repIssue" rows="3" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" placeholder="ระบุชื่อเครื่องมือ อาการผิดปกติ และวันที่เริ่มพบอาการ..." required></textarea>
+        </div>
+        <button type="submit" class="w-full bg-pink-600 text-white rounded-xl py-2.5 hover:bg-pink-700 transition shadow-sm font-medium">ส่งข้อมูลแจ้งซ่อม</button>
+      </form>
+    </div>
+
+    <!-- 4. Admin -->
+    <div id="adminTab" class="tab-content glass-card p-6 hidden">
+      <div id="adminLogin" class="max-w-sm mx-auto my-6 p-6 bg-slate-50/70 border border-slate-200/80 rounded-2xl">
+        <div class="w-12 h-12 rounded-2xl bg-slate-800 text-white flex items-center justify-center mx-auto mb-3 shadow">
+          <i class="fa-solid fa-user-shield text-lg"></i>
+        </div>
+        <h2 class="text-lg font-semibold mb-1 text-center text-slate-800">เข้าสู่ระบบ Admin</h2>
+        <p class="text-xs text-slate-400 text-center mb-4">สำหรับเจ้าหน้าที่บริหารคลังเวชภัณฑ์และงานซ่อม</p>
+        <div>
+          <input type="password" id="adminPin" placeholder="รหัสผ่าน" class="w-full border border-slate-200 bg-white rounded-xl px-4 py-2 mb-3 text-center tracking-widest text-lg focus:outline-none focus:ring-2 focus:ring-slate-300">
+          <button onclick="loginAdmin()" class="w-full bg-slate-800 text-white rounded-xl py-2.5 hover:bg-slate-900 transition font-medium">เข้าสู่ระบบ</button>
+        </div>
+      </div>
+      <div id="adminDashboard" class="hidden">
+        <div class="flex flex-wrap justify-between items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-lg bg-slate-800 text-white flex items-center justify-center">
+              <i class="fa-solid fa-sliders"></i>
+            </div>
+            <div>
+              <h2 class="text-lg font-semibold text-slate-800 leading-tight">Admin & บริหารคลังวัสดุ</h2>
+              <p class="text-xs text-slate-400">จัดการใบเบิก แจ้งซ่อม สต็อกรับเข้า-จ่ายออก แผนประจำปี และเอกสารจัดซื้อ</p>
+            </div>
+          </div>
+          <button onclick="logoutAdmin()" class="text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition"><i class="fa-solid fa-right-from-bracket mr-1"></i> ออกจากระบบ</button>
+        </div>
+        <div class="flex flex-wrap items-center space-x-4 gap-y-2 mb-4">
+          <button onclick="loadAdminData('req')" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-medium shadow-sm transition"><i class="fa-solid fa-truck-fast mr-1"></i>เมนูจ่ายของ (เบิก)</button>
+          <button onclick="loadAdminData('repair')" class="px-4 py-1.5 bg-pink-500 hover:bg-pink-600 text-white rounded-full text-sm font-medium shadow-sm transition"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>เมนูแจ้งซ่อม</button>
+        </div>
+        <div id="adminTableContainer" class="overflow-x-auto text-sm">
+          <p class="text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">กรุณาเลือกเมนูด้านบน</p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="text-center text-xs text-slate-400 mt-8 pb-4">
+      Copyright © 2027 Saran Amphaiphan. All rights reserved.
+    </footer>
+  </main>
+
+<script src="gas-api.js"></script>
+     <script src="xls-writer.js"></script>
+     <script src="help-tour.js"></script>
+     <script src="stock-ui.js"></script>
+  <script src="stock-docs.js"></script>
+  <script>
+    let unitData = {};
+    let currentReqMode = 'emergency';
+    let emCatalog = [];
+    let emCart = {};
+    let favIds = new Set();   // ProductID ที่เป็นรายการโปรดของหน่วยที่กรอก
+    let favUnit = '';         // รหัสหน่วยที่โหลดรายการโปรดไว้
+    let showFavOnly = false;
+
+    // ผู้ลงนามในใบเบิก (ชื่อ/ตำแหน่ง ตามหน่วยบริการ)
+    const STAFF_KEYS = ['recvName', 'recvPos', 'dirName', 'dirPos', 'distName', 'distPos', 'ctrlName', 'ctrlPos', 'headName', 'headPos'];
+    let staffUnit = '';       // รหัสหน่วยที่โหลดข้อมูลผู้ลงนามไว้
+    let staffReady = false;   // โหลดข้อมูลผู้ลงนามเสร็จแล้วหรือยัง
+    let staffLoaded = {};     // ค่าตอนโหลดมา ใช้เทียบว่ามีการแก้ไขหรือไม่
+
+    // โหมดแก้ไขรายการเดิม (เลขแถวในชีต "รับข้อมูล"; null = ส่งเบิกใหม่)
+    let editingRow = null;
+
+    // --- Smart Sticky Navbar (ซ่อนเมื่อ Scroll Down / แสดงเมื่อ Scroll Up) ---
+    let lastScrollY = window.scrollY || 0;
+    window.addEventListener('scroll', function() {
+      const currentY = window.scrollY || 0;
+      const delta = currentY - lastScrollY;
+      const nav = document.getElementById('smartNavbar');
+      const topBtn = document.getElementById('floatingTopBtn');
+      if (!nav) return;
+      if (currentY > 80 && delta > 6) {
+        nav.classList.add('navbar-hidden');
+        if (topBtn) { topBtn.classList.remove('hidden'); topBtn.classList.add('inline-flex'); }
+      } else if (delta < -6 || currentY <= 40) {
+        nav.classList.remove('navbar-hidden');
+        if (topBtn) { topBtn.classList.add('hidden'); topBtn.classList.remove('inline-flex'); }
+      }
+      lastScrollY = currentY;
+    }, { passive: true });
+
+    function forceShowNavbar() {
+      const nav = document.getElementById('smartNavbar');
+      const topBtn = document.getElementById('floatingTopBtn');
+      if (nav) nav.classList.remove('navbar-hidden');
+      if (topBtn) { topBtn.classList.add('hidden'); topBtn.classList.remove('inline-flex'); }
+    }
+
+    function toggleSignerBox(forceOpen) {
+      const body = document.getElementById('signerBody');
+      const chev = document.getElementById('signerChevron');
+      if (!body) return;
+      const willOpen = (typeof forceOpen === 'boolean') ? forceOpen : body.classList.contains('hidden');
+      body.classList.toggle('hidden', !willOpen);
+      if (chev) chev.className = willOpen ? 'fa-solid fa-chevron-up mr-1' : 'fa-solid fa-chevron-down mr-1';
+    }
+
+    function updateSignerSummary() {
+      const sumEl = document.getElementById('signerSummaryText');
+      if (!sumEl) return;
+      const rName = (document.getElementById('st_recvName')?.value || '').trim() || '-';
+      const dName = (document.getElementById('st_dirName')?.value || '').trim() || '-';
+      sumEl.textContent = `ผู้รับของ: ${rName} · ผอ.: ${dName}`;
+    }
+
+    window.onload = function() {
+      google.script.run.withSuccessHandler(data => { unitData = data; }).getUnits();
+      fetchEmergencyCatalog();
+    };
+
+    function getDirectDownloadUrl(url) {
+      if (!url) return '';
+      let idMatch = url.toString().match(/[-\w]{25,}/);
+      return idMatch ? 'https://drive.google.com/uc?export=download&id=' + idMatch[0] : url;
+    }
+
+    function switchTab(tabId, colorType) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+      const pillMap = { blue: 'active-blue', green: 'active-green', pink: 'active-pink', gray: 'active-slate' };
+      document.querySelectorAll('[id^="btn-"]').forEach(el => {
+        if (el.id === 'btnModeEmergency' || el.id === 'btnModeUpload' || el.id === 'btnFavOnly' || el.id === 'btnSubmitEm' || el.id === 'btnToggleSigner' || el.id === 'btnStock') return;
+        el.className = 'nav-pill';
+      });
+      const activeBtn = document.getElementById('btn-' + tabId);
+      if (activeBtn) activeBtn.className = `nav-pill ${pillMap[colorType] || 'active-blue'}`;
+
+      // ขยายความกว้างเป็น max-w-6xl อัตโนมัติเมื่อเข้าหน้า Admin / คลังวัสดุ
+      const mainEl = document.getElementById('mainContainer');
+      const navInner = document.getElementById('navInner');
+      if (mainEl) {
+        mainEl.classList.remove('max-w-4xl', 'max-w-6xl');
+        mainEl.classList.add(tabId === 'adminTab' ? 'max-w-6xl' : 'max-w-4xl');
+      }
+      if (navInner) {
+        navInner.classList.remove('max-w-4xl', 'max-w-6xl');
+        navInner.classList.add(tabId === 'adminTab' ? 'max-w-6xl' : 'max-w-4xl');
+      }
+    }
+
+    function checkUnit(inputId, outputId) {
+      let rawCode = document.getElementById(inputId).value.trim();
+      if (!rawCode) {
+        document.getElementById(outputId).value = '';
+        if (inputId === 'reqUnitCode') { resetFavorites(); resetStaff(); }
+        return;
+      }
+      let paddedCode = (/^\d+$/.test(rawCode) && rawCode.length < 5) ? rawCode.padStart(5, '0') : rawCode;
+      let unitName = unitData[paddedCode] || unitData[rawCode] || '';
+      document.getElementById(outputId).value = unitName;
+
+      // โหลดรายการโปรดและผู้ลงนามเมื่อกรอกรหัสหน่วยที่ถูกต้อง (เฉพาะฟอร์มส่งเบิกวัสดุ)
+      if (inputId === 'reqUnitCode') {
+        if (unitName && paddedCode !== favUnit) {
+          favUnit = paddedCode;
+          favIds = new Set();
+          loadFavorites(paddedCode);
+        } else if (!unitName) {
+          resetFavorites();
+        }
+
+        if (unitName && paddedCode !== staffUnit) {
+          loadStaff(paddedCode);
+        } else if (!unitName) {
+          resetStaff();
+        }
+      }
+    }
+
+    function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+    function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+
+    function getFileObj(fileInput) {
+      return new Promise((resolve) => {
+        if (!fileInput || !fileInput.files.length) { resolve(null); return; }
+        let file = fileInput.files[0];
+        let reader = new FileReader();
+        reader.onload = function() {
+          resolve({ fileName: file.name, mimeType: file.type, base64: reader.result.split(',')[1] });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+    // ดาวน์โหลดไฟล์จาก base64 (ใช้กับใบเบิก PDF)
+    function downloadBase64File(fileName, mimeType, base64) {
+      const bin = atob(base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+
+    // --- ระบบเบิกฉุกเฉิน --- //
+    function setReqMode(mode) {
+      // ระหว่างแก้ไขรายการเดิม ห้ามสลับไปโหมดอัปโหลด
+      if (editingRow && mode === 'upload') {
+        Swal.fire('กำลังแก้ไขรายการเดิมอยู่', 'กรุณากด "ยกเลิกการแก้ไข" ก่อน หากต้องการเปลี่ยนโหมด', 'info');
+        return;
+      }
+
+      currentReqMode = mode;
+      const btnUp = document.getElementById('btnModeUpload');
+      const btnEm = document.getElementById('btnModeEmergency');
+      const secUp = document.getElementById('reqModeUpload');
+      const secEm = document.getElementById('reqModeEmergency');
+      const fileInput = document.getElementById('reqFile');
+
+      if (mode === 'upload') {
+        btnUp.className = "flex-1 py-2 text-sm font-medium rounded-md bg-white text-gray-800 shadow transition-all duration-200";
+        btnEm.className = "flex-1 py-2 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all duration-200";
+        secUp.classList.remove('hidden');
+        secEm.classList.add('hidden');
+        fileInput.required = true;
+      } else {
+        btnEm.className = "flex-1 py-2 text-sm font-medium rounded-md bg-white text-gray-800 shadow transition-all duration-200";
+        btnUp.className = "flex-1 py-2 text-sm font-medium rounded-md text-gray-500 hover:text-gray-700 transition-all duration-200";
+        secEm.classList.remove('hidden');
+        secUp.classList.add('hidden');
+        fileInput.required = false;
+
+        if (emCatalog.length === 0) fetchEmergencyCatalog();
+      }
+    }
+
+    function fetchEmergencyCatalog() {
+      google.script.run.withSuccessHandler(res => {
+        if (res.success) {
+          emCatalog = res.data;
+          renderEmList();
+        } else {
+          document.getElementById('emList').innerHTML = `<p class="text-center text-red-400 text-sm py-4">โหลดข้อมูลล้มเหลว: ${res.error}</p>`;
+        }
+      }).getEmergencyCatalog();
+    }
+
+    // โหลด catalog แบบรอผลได้ (ใช้ตอนเข้าโหมดแก้ไข)
+    function loadCatalogPromise() {
+      return new Promise(resolve => {
+        if (emCatalog.length) { resolve(true); return; }
+        google.script.run.withSuccessHandler(res => {
+          if (res && res.success) { emCatalog = res.data; renderEmList(); resolve(true); }
+          else resolve(false);
+        }).withFailureHandler(() => resolve(false)).getEmergencyCatalog();
+      });
+    }
+
+    function filterEmergencyList() {
+      let txt = document.getElementById('emSearch').value.toLowerCase();
+      renderEmList(txt);
+    }
+
+    function renderEmList(filterText = '') {
+      let rows = [];
+      emCatalog.forEach((item, idx) => {
+        if (filterText) {
+          const matchName = item.ProductName.toLowerCase().indexOf(filterText) !== -1;
+          const matchId = (item.ProductID || '').toLowerCase().indexOf(filterText) !== -1;
+          if (!matchName && !matchId) return;
+        }
+        const isFav = favIds.has(item.ProductID);
+        if (showFavOnly && !isFav) return;
+        rows.push({ item, idx, isFav });
+      });
+      // รายการโปรดขึ้นก่อน แล้วเรียงตามลำดับเดิมในชีต
+      rows.sort((a, b) => (b.isFav - a.isFav) || (a.idx - b.idx));
+
+      let html = '';
+      rows.forEach(({ item, idx, isFav }) => {
+        html += `
+          <div class="flex justify-between items-center p-2 border ${isFav ? 'border-yellow-200 bg-yellow-50' : 'border-gray-100 bg-white'} rounded hover:bg-gray-50 transition-colors">
+            <div class="flex items-center w-3/4 pr-2">
+              <button type="button" onclick="toggleFav(${idx})" title="${isFav ? 'เอาออกจากรายการโปรด' : 'เพิ่มเป็นรายการโปรด'}" class="text-lg mr-2 leading-none ${isFav ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-300'}">
+                <i class="fa-${isFav ? 'solid' : 'regular'} fa-star"></i>
+              </button>
+              <div class="text-sm">
+                <div class="font-medium text-gray-700 leading-tight" title="${item.ProductName}">${item.ProductName}</div>
+                <div class="text-[11px] text-gray-400 mt-0.5">${item.ProductID} | ${item.PackName || '-'}</div>
+              </div>
+            </div>
+            <button type="button" onclick="addToCart(${idx})" class="bg-blue-100 text-blue-600 px-2.5 py-1.5 rounded-md text-xs font-medium hover:bg-blue-200 transition">
+              <i class="fa-solid fa-plus"></i> เพิ่ม
+            </button>
+          </div>
+        `;
+      });
+
+      const emptyMsg = showFavOnly ? 'ยังไม่มีรายการโปรด กดรูปดาวที่รายการเพื่อเพิ่ม' : 'ไม่พบรายการที่ค้นหา';
+      document.getElementById('emList').innerHTML = html || `<p class="text-center text-gray-400 text-sm mt-4">${emptyMsg}</p>`;
+    }
+
+    // --- รายการโปรด (บันทึกตามรหัสหน่วยบริการ) --- //
+    function refreshEmList() {
+      if (!emCatalog.length) return;
+      renderEmList(document.getElementById('emSearch').value.toLowerCase());
+    }
+
+    function updateFavToggleUi() {
+      const btn = document.getElementById('btnFavOnly');
+      if (!btn) return;
+      btn.className = showFavOnly
+        ? 'flex-1 py-1.5 text-xs font-medium rounded-md bg-yellow-100 text-yellow-700 border border-yellow-300'
+        : 'flex-1 py-1.5 text-xs font-medium rounded-md bg-gray-50 text-gray-500 border';
+    }
+
+    function toggleFavOnly() {
+      showFavOnly = !showFavOnly;
+      updateFavToggleUi();
+      refreshEmList();
+    }
+
+    function resetFavorites() {
+      if (favUnit || favIds.size) {
+        favUnit = '';
+        favIds = new Set();
+        refreshEmList();
+      }
+    }
+
+    function loadFavorites(code) {
+      google.script.run.withSuccessHandler(res => {
+        if (code !== favUnit) return; // ผู้ใช้เปลี่ยนรหัสหน่วยไปแล้ว ไม่ต้องใช้ผลนี้
+        favIds = new Set(res && res.success ? res.data : []);
+        refreshEmList();
+      }).getFavorites(code);
+    }
+
+    function toggleFav(idx) {
+      const code = document.getElementById('reqUnitCode').value.trim();
+      const name = document.getElementById('reqUnitName').value;
+      if (!name) {
+        return Swal.fire('กรุณากรอกรหัสหน่วยบริการก่อน', 'รายการโปรดจะถูกบันทึกตามรหัสหน่วยบริการ', 'info');
+      }
+      const pid = emCatalog[idx].ProductID;
+      const wasFav = favIds.has(pid);
+
+      // อัปเดตหน้าจอทันที แล้วค่อยบันทึกลงชีต
+      if (wasFav) favIds.delete(pid); else favIds.add(pid);
+      refreshEmList();
+
+      const revert = (msg) => {
+        if (wasFav) favIds.add(pid); else favIds.delete(pid);
+        refreshEmList();
+        Swal.fire('บันทึกรายการโปรดไม่สำเร็จ', msg || '', 'error');
+      };
+
+      google.script.run
+        .withSuccessHandler(res => { if (!res.success) revert(res.error); })
+        .withFailureHandler(err => revert(err.message))
+        .setFavorite(code, pid, !wasFav);
+    }
+
+    function addAllFavorites() {
+      if (favIds.size === 0) {
+        return Swal.fire('ยังไม่มีรายการโปรด', 'กดรูปดาวที่รายการวัสดุเพื่อเพิ่มเป็นรายการโปรด', 'info');
+      }
+      let added = 0;
+      emCatalog.forEach((item, idx) => {
+        if (favIds.has(item.ProductID) && !emCart[idx]) {
+          emCart[idx] = { item: item, qty: 1 };
+          added++;
+        }
+      });
+      renderCart();
+      if (!added) Swal.fire({ icon: 'info', title: 'รายการโปรดอยู่ในตะกร้าครบแล้ว', timer: 1500, showConfirmButton: false });
+    }
+
+    function addToCart(idx) {
+      if (emCart[idx]) emCart[idx].qty += 1;
+      else emCart[idx] = { item: emCatalog[idx], qty: 1 };
+      renderCart();
+    }
+
+    function updateCart(idx, delta) {
+      if (!emCart[idx]) return;
+      emCart[idx].qty += delta;
+      if (emCart[idx].qty <= 0) delete emCart[idx];
+      renderCart();
+    }
+
+    function setCartQty(idx, val) {
+      if (!emCart[idx]) return;
+      let q = Math.floor(Number(val) || 0);
+      if (q <= 0) delete emCart[idx];
+      else emCart[idx].qty = q;
+      renderCart();
+    }
+
+    function renderCart() {
+      let html = '';
+      let keys = Object.keys(emCart);
+      const badgeEl = document.getElementById('emCartBadge');
+      if (badgeEl) badgeEl.textContent = `${keys.length} รายการ`;
+      if (keys.length === 0) {
+        html = '<p class="text-center text-gray-400 text-sm py-8">ยังไม่มีรายการที่เลือก</p>';
+      } else {
+        keys.forEach(idx => {
+          let c = emCart[idx];
+          html += `
+            <div class="flex justify-between items-center p-2.5 bg-white border border-blue-100 rounded-xl shadow-sm">
+              <div class="text-sm w-[56%]">
+                <div class="font-medium text-slate-700 leading-tight line-clamp-2" title="${c.item.ProductName}">${c.item.ProductName}</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">${c.item.PackName || '-'}</div>
+              </div>
+              <div class="flex items-center space-x-1 bg-slate-50 rounded-lg p-1 border border-slate-200">
+                <button type="button" onclick="updateCart(${idx}, -1)" class="w-6 h-6 bg-white text-red-500 rounded border hover:bg-red-50 flex items-center justify-center font-bold">-</button>
+                <input type="number" min="0" value="${c.qty}" onchange="setCartQty(${idx}, this.value)" class="text-sm w-12 text-center font-semibold bg-white border rounded py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-300">
+                <button type="button" onclick="updateCart(${idx}, 1)" class="w-6 h-6 bg-white text-emerald-600 rounded border hover:bg-emerald-50 flex items-center justify-center font-bold">+</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('emCart').innerHTML = html;
+    }
+
+    // --- ผู้ลงนามในใบเบิก (ตามหน่วยบริการ) --- //
+    function readStaffForm() {
+      const o = {};
+      STAFF_KEYS.forEach(k => {
+        const el = document.getElementById('st_' + k);
+        o[k] = el ? el.value.trim() : '';
+      });
+      return o;
+    }
+
+    function fillStaffForm(data) {
+      STAFF_KEYS.forEach(k => {
+        const el = document.getElementById('st_' + k);
+        if (el) el.value = (data && data[k]) ? data[k] : '';
+      });
+      updateSignerSummary();
+    }
+
+    function resetStaff() {
+      if (staffUnit || staffReady) {
+        staffUnit = '';
+        staffReady = false;
+        staffLoaded = {};
+        fillStaffForm({});
+      }
+    }
+
+    function loadStaff(code) {
+      staffUnit = code;
+      staffReady = false;
+      staffLoaded = {};
+      fillStaffForm({});
+
+      google.script.run.withSuccessHandler(res => {
+        if (code !== staffUnit) return; // ผู้ใช้เปลี่ยนรหัสหน่วยไปแล้ว ไม่ต้องใช้ผลนี้
+        fillStaffForm(res && res.success ? res.data : {});
+        staffLoaded = readStaffForm();
+        staffReady = true;
+      }).withFailureHandler(() => {
+        if (code !== staffUnit) return;
+        fillStaffForm({});
+        staffLoaded = readStaffForm();
+        staffReady = true;
+      }).getUnitStaff(code);
+    }
+
+    // --- โหมดแก้ไขรายการเบิกล่าสุด (เริ่มจากหน้ารับวัสดุ) --- //
+    function setEditUi(on, dateText) {
+      const banner = document.getElementById('editBanner');
+      const btn = document.getElementById('btnSubmitEm');
+      const btnText = document.getElementById('btnSubmitEmText');
+      const codeInput = document.getElementById('reqUnitCode');
+
+      if (on) {
+        document.getElementById('editBannerText').textContent =
+          'กำลังแก้ไขรายการเบิกเมื่อ ' + (dateText || '') + ' — เมื่อบันทึก ระบบจะเขียนทับรายการและไฟล์เดิม';
+        banner.classList.remove('hidden');
+        btnText.textContent = 'บันทึกการแก้ไข (เขียนทับรายการเดิม)';
+        btn.classList.remove('bg-green-500', 'hover:bg-green-600');
+        btn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+        codeInput.readOnly = true;
+        codeInput.classList.add('bg-gray-50', 'text-gray-500');
+      } else {
+        banner.classList.add('hidden');
+        btnText.textContent = 'ส่งใบเบิกวัสดุออนไลน์';
+        btn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+        btn.classList.add('bg-green-500', 'hover:bg-green-600');
+        codeInput.readOnly = false;
+        codeInput.classList.remove('bg-gray-50', 'text-gray-500');
+      }
+    }
+
+    function startEditLatest(rowIndex) {
+      const code = document.getElementById('dlUnitCode').value.trim();
+      showLoader();
+      google.script.run.withSuccessHandler(res => {
+        hideLoader();
+        if (!res.success) return Swal.fire('แก้ไขไม่ได้', res.error, 'warning');
+        enterEditMode(code, res.data);
+      }).withFailureHandler(err => {
+        hideLoader();
+        Swal.fire('ข้อผิดพลาด', err.message, 'error');
+      }).getRequisitionForEdit(code, rowIndex);
+    }
+
+    async function enterEditMode(code, data) {
+      showLoader();
+      const ok = await loadCatalogPromise();
+      hideLoader();
+      if (!ok) return Swal.fire('ข้อผิดพลาด', 'โหลดรายการวัสดุไม่สำเร็จ กรุณาลองใหม่', 'error');
+
+      // ไปที่แท็บส่งเบิก โหมดเบิกฉุกเฉิน แล้วใส่รหัสหน่วย
+      editingRow = null; // กันตัวตรวจในซ้ำระหว่างตั้งค่า
+      switchTab('reqTab', 'blue');
+      setReqMode('emergency');
+      document.getElementById('reqUnitCode').value = code;
+      checkUnit('reqUnitCode', 'reqUnitName');
+      if (!document.getElementById('reqUnitName').value) {
+        return Swal.fire('ข้อผิดพลาด', 'ไม่พบรหัสหน่วยบริการนี้', 'error');
+      }
+
+      // ใส่รายการเดิมลงตะกร้า (จับคู่ตาม ProductID ถ้าไม่พบใน catalog ปัจจุบันให้เพิ่มเข้า catalog ชั่วคราว)
+      emCart = {};
+      (data.items || []).forEach(it => {
+        let idx = emCatalog.findIndex(c => c.ProductID === it.ProductID);
+        if (idx === -1) {
+          emCatalog.push({
+            ProductID: it.ProductID, ProductName: it.ProductName,
+            MediUnitID: it.MediUnitID, MediUnitName: it.MediUnitName,
+            PackID: it.PackID, PackName: it.PackName
+          });
+          idx = emCatalog.length - 1;
+        }
+        emCart[idx] = { item: emCatalog[idx], qty: Number(it.ToOrder) || 1 };
+      });
+      renderCart();
+      refreshEmList();
+
+      editingRow = data.rowIndex;
+      setEditUi(true, data.date);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function exitEditMode() {
+      editingRow = null;
+      setEditUi(false);
+    }
+
+    function cancelEdit() {
+      exitEditMode();
+      resetEmergencyForm();
+    }
+
+    // --- Submit ฟอร์มเบิก (จัดการทั้ง 2 โหมด) --- //
+    async function submitReq(e) {
+      e.preventDefault();
+      let code = document.getElementById('reqUnitCode').value.trim();
+      let name = document.getElementById('reqUnitName').value;
+      if(!name) return Swal.fire('ผิดพลาด', 'ไม่พบรหัสหน่วยบริการนี้', 'error');
+
+      if (currentReqMode === 'upload') {
+        let fileInput = document.getElementById('reqFile');
+        if (!fileInput.files.length) return Swal.fire('ผิดพลาด', 'กรุณาแนบไฟล์ Excel เบิกวัสดุ', 'warning');
+        showLoader();
+        let fileObj = await getFileObj(fileInput);
+        google.script.run.withSuccessHandler(res => {
+          hideLoader();
+          if(res.success) {
+            Swal.fire('สำเร็จ', 'ส่งข้อมูลเบิกวัสดุเรียบร้อยแล้ว', 'success');
+            document.getElementById('reqForm').reset();
+          } else Swal.fire('ข้อผิดพลาด', res.error, 'error');
+        }).submitRequisition(code, name, fileObj);
+
+      } else {
+        if (Object.keys(emCart).length === 0) return Swal.fire('ผิดพลาด', 'กรุณาเลือกรายการเบิกวัสดุอย่างน้อย 1 รายการ', 'warning');
+        if (!staffReady) return Swal.fire('รอสักครู่', 'กำลังโหลดข้อมูลผู้ลงนามของหน่วยบริการ กรุณาลองกดส่งอีกครั้ง', 'info');
+
+        // โหมดแก้ไข: ยืนยันก่อนเขียนทับ
+        if (editingRow) {
+          const confirmRes = await Swal.fire({
+            title: 'บันทึกการแก้ไข?',
+            text: 'รายการเดิมจะถูกเขียนทับด้วยรายการใหม่',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'บันทึก',
+            cancelButtonText: 'ยกเลิก'
+          });
+          if (!confirmRes.isConfirmed) return;
+        }
+
+        showLoader();
+
+        let exportData = [];
+        for (let idx in emCart) {
+          let item = emCart[idx].item;
+          exportData.push({
+            ProductID: item.ProductID,
+            ProductName: item.ProductName,
+            MediUnitID: item.MediUnitID,
+            MediUnitName: item.MediUnitName,
+            PackID: item.PackID,
+            PackName: item.PackName,
+            ToOrder: emCart[idx].qty
+          });
+        }
+
+        // ผู้ลงนามในใบเบิก: บันทึกทับลงชีตเฉพาะเมื่อมีการแก้ไขจากค่าที่โหลดมา
+        const staff = readStaffForm();
+        const saveStaff = JSON.stringify(staff) !== JSON.stringify(staffLoaded);
+        const wasEdit = !!editingRow;
+        const paddedCode = (/^\d+$/.test(code) && code.length < 5) ? code.padStart(5, '0') : code;
+        const localDocPayload = {
+          unitCode: paddedCode,
+          unitName: name,
+          thaiDateText: XlsWriter.formatThaiDate(new Date()),
+          xlsDateStr: XlsWriter.formatDateDDMMYYYYBE(new Date()),
+          items: exportData.slice(),
+          staff: Object.assign({}, staff)
+        };
+
+        // เรียกเซิร์ฟเวอร์ครั้งเดียว: บันทึกแถว (หรือเขียนทับแถวเดิมถ้าแก้ไข)
+        google.script.run.withSuccessHandler(res => {
+          hideLoader();
+          if (!res.success) return Swal.fire('ข้อผิดพลาด', res.error, 'error');
+
+          const docPayload = {
+            unitCode: res.unitCode || localDocPayload.unitCode,
+            unitName: res.unitName || localDocPayload.unitName,
+            thaiDateText: res.thaiDateText || localDocPayload.thaiDateText,
+            xlsDateStr: res.xlsDateStr || localDocPayload.xlsDateStr,
+            items: (Array.isArray(res.items) && res.items.length > 0) ? res.items : localDocPayload.items,
+            staff: res.staff || localDocPayload.staff
+          };
+          saveReqDocCache(docPayload);
+
+          exitEditMode();
+          resetEmergencyForm();
+
+          Swal.fire({
+            icon: 'success',
+            title: wasEdit ? 'บันทึกการแก้ไขเรียบร้อยแล้ว' : 'ส่งเบิกวัสดุเรียบร้อยแล้ว',
+            text: 'กดปุ่มด้านล่างเพื่อเปิดพิมพ์/บันทึก PDF ใบเบิก หรือดาวน์โหลดไฟล์ .xls' +
+                  (res.staffSaveError ? ' (หมายเหตุ: บันทึกชื่อผู้ลงนามลงชีตไม่สำเร็จ: ' + res.staffSaveError + ')' : ''),
+            showDenyButton: true,
+            showCancelButton: true,
+            allowOutsideClick: false,
+            confirmButtonText: '<i class="fa-solid fa-print"></i> พิมพ์ / บันทึก PDF ใบเบิก',
+            denyButtonText: '<i class="fa-solid fa-file-excel"></i> โหลดไฟล์ .xls (CPN)',
+            cancelButtonText: 'ปิด',
+            confirmButtonColor: '#3b82f6',
+            denyButtonColor: '#059669'
+          }).then(r => {
+            if (r.isConfirmed) {
+              XlsWriter.openRequisitionPrintWindow(docPayload);
+            } else if (r.isDenied) {
+              XlsWriter.downloadClientOrder(docPayload.items, docPayload.unitCode, docPayload.xlsDateStr);
+            }
+          });
+        }).withFailureHandler(err => {
+          hideLoader();
+          Swal.fire('ข้อผิดพลาด', err.message, 'error');
+        }).submitEmergencyRequisition(code, name, exportData, staff, saveStaff, editingRow || 0);
+      }
+    }
+
+    function saveReqDocCache(doc) {
+      try {
+        const list = JSON.parse(localStorage.getItem('dentalReqDocCache') || '[]');
+        list.unshift(Object.assign({ savedAt: Date.now() }, doc));
+        localStorage.setItem('dentalReqDocCache', JSON.stringify(list.slice(0, 30)));
+      } catch (e) {}
+    }
+
+    function getReqDocCache(unitCode) {
+      try {
+        const code = (/^\d+$/.test(String(unitCode || '')) && String(unitCode).length < 5)
+          ? String(unitCode).padStart(5, '0') : String(unitCode || '').trim();
+        const list = JSON.parse(localStorage.getItem('dentalReqDocCache') || '[]');
+        return list.find(x => !code || x.unitCode === code) || null;
+      } catch (e) { return null; }
+    }
+
+    // ดึงข้อมูลรายการเบิก + ผู้ลงนาม (รองรับทั้ง GAS เวอร์ชันใหม่ และ fallback อัตโนมัติกรณี GAS ยังไม่ได้ Deploy ใหม่)
+    async function fetchReqDocData(rowIndex, unitCode, unitNameHint, dateHint) {
+      const code = (/^\d+$/.test(String(unitCode || '')) && String(unitCode).length < 5)
+        ? String(unitCode).padStart(5, '0') : String(unitCode || '').trim();
+
+      // 1) ลองเรียก getRequisitionDocData (โค้ด GAS ใหม่)
+      try {
+        const res = await gasCall('getRequisitionDocData', [rowIndex, code]);
+        if (res && res.success && res.data && Array.isArray(res.data.items) && res.data.items.length) {
+          return res.data;
+        }
+      } catch (e1) {}
+
+      // 2) Fallback กรณี GAS ยังไม่ได้ Deploy ฟังก์ชันใหม่: ลองดึงผ่าน getRequisitionForEdit (ที่มีอยู่แล้วบนเซิร์ฟเวอร์)
+      if (code) {
+        try {
+          const editRes = await gasCall('getRequisitionForEdit', [code, rowIndex]);
+          if (editRes && editRes.success && editRes.data && Array.isArray(editRes.data.items) && editRes.data.items.length) {
+            let staffData = {};
+            try {
+              const stRes = await gasCall('getUnitStaff', [code]);
+              if (stRes && stRes.success && stRes.data) staffData = stRes.data;
+            } catch (eSt) {}
+            const dStr = editRes.data.date || dateHint || new Date();
+            return {
+              rowIndex: rowIndex,
+              unitCode: code,
+              unitName: unitNameHint || unitData[code] || '',
+              dateText: String(dStr),
+              thaiDateText: XlsWriter.formatThaiDate(dStr),
+              xlsDateStr: XlsWriter.formatDateDDMMYYYYBE(dStr),
+              items: editRes.data.items,
+              staff: staffData
+            };
+          }
+        } catch (e2) {}
+      }
+
+      // 3) Fallback สำหรับหน้า Admin (มี GAS_ADMIN_PIN): ดึงผ่าน stockGetRequisitionLines + จับคู่ emCatalog
+      if (typeof GAS_ADMIN_PIN !== 'undefined' && GAS_ADMIN_PIN) {
+        try {
+          await loadCatalogPromise();
+          const stLines = await gasCall('stockGetRequisitionLines', [rowIndex]);
+          if (stLines && stLines.hasItems) {
+            const byId = {};
+            (emCatalog || []).forEach(c => { byId[String(c.ProductID).trim()] = c; });
+            const allRaw = [].concat(stLines.lines || [], stLines.unmapped || []);
+            const rebuilt = allRaw.map(l => {
+              const cat = byId[String(l.cpn || '').trim()] || {};
+              return {
+                ProductID: l.cpn || cat.ProductID || '',
+                ProductName: cat.ProductName || l.name || '',
+                MediUnitID: cat.MediUnitID || '',
+                MediUnitName: cat.MediUnitName || '',
+                PackID: cat.PackID || '',
+                PackName: cat.PackName || '',
+                ToOrder: Number(l.qty) || 0
+              };
+            }).filter(x => x.ProductName && x.ToOrder > 0);
+
+            if (rebuilt.length) {
+              const uCode = stLines.unitCode || code;
+              let staffData = {};
+              try {
+                const stRes = await gasCall('getUnitStaff', [uCode]);
+                if (stRes && stRes.success && stRes.data) staffData = stRes.data;
+              } catch (eSt2) {}
+              const dStr = dateHint || new Date();
+              return {
+                rowIndex: rowIndex,
+                unitCode: uCode,
+                unitName: stLines.unitName || unitNameHint || unitData[uCode] || '',
+                dateText: String(dStr),
+                thaiDateText: XlsWriter.formatThaiDate(dStr),
+                xlsDateStr: XlsWriter.formatDateDDMMYYYYBE(dStr),
+                items: rebuilt,
+                staff: staffData
+              };
+            }
+          }
+        } catch (e3) {}
+      }
+
+      // 4) Fallback จากรายการที่เพิ่งส่งเบิกในเบราว์เซอร์นี้
+      const cached = getReqDocCache(code);
+      if (cached && Array.isArray(cached.items) && cached.items.length) {
+        return cached;
+      }
+
+      throw new Error('ไม่พบข้อมูลรายการวัสดุของแถวนี้ (หากเพิ่งอัปเดตโค้ด กรุณาอัปเดตไฟล์ Code.gs และ Api.gs บน Google Apps Script แล้วกด Deploy -> New version)');
+    }
+
+    // เปิดหน้าพิมพ์ใบเบิกวัสดุทันตกรรม (A4) จากข้อมูลในชีต "รับข้อมูล"
+    async function openReqPrint(rowIndex, unitCode, unitNameHint, dateHint) {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write('<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>กำลังโหลดใบเบิก...</title></head><body style="font-family:sans-serif;text-align:center;padding:40px;color:#555;">กำลังเตรียมใบเบิกวัสดุทันตกรรม...</body></html>');
+      }
+      showLoader();
+      try {
+        const docData = await fetchReqDocData(rowIndex, unitCode, unitNameHint, dateHint);
+        hideLoader();
+        XlsWriter.openRequisitionPrintWindow(docData, win);
+      } catch (err) {
+        hideLoader();
+        if (win) win.close();
+        Swal.fire('ไม่สามารถเปิดใบเบิกได้', err.message || String(err), 'error');
+      }
+    }
+
+    // ดาวน์โหลดไฟล์ .xls (พร้อม Name Box qryClientOrderExport สำหรับโปรแกรม CPN) จากแถวในชีต "รับข้อมูล"
+    async function downloadReqXls(rowIndex, unitCode, unitNameHint, dateHint) {
+      showLoader();
+      try {
+        const d = await fetchReqDocData(rowIndex, unitCode, unitNameHint, dateHint);
+        hideLoader();
+        XlsWriter.downloadClientOrder(d.items, d.unitCode, d.xlsDateStr || d.dateText);
+      } catch (err) {
+        hideLoader();
+        Swal.fire('ไม่สามารถสร้างไฟล์ .xls ได้', err.message || String(err), 'error');
+      }
+    }
+
+    // ล้างฟอร์มเบิกฉุกเฉินหลังส่งสำเร็จ / ยกเลิกการแก้ไข
+    function resetEmergencyForm() {
+      emCart = {}; renderCart();
+      favIds = new Set(); favUnit = ''; showFavOnly = false; updateFavToggleUi(); refreshEmList();
+      resetStaff();
+      document.getElementById('reqUnitCode').value = '';
+      document.getElementById('reqUnitName').value = '';
+    }
+
+    function submitRepair(e) {
+      e.preventDefault();
+      let code = document.getElementById('repUnitCode').value.trim();
+      let name = document.getElementById('repUnitName').value;
+      let issue = document.getElementById('repIssue').value;
+      if(!name) return Swal.fire('ผิดพลาด', 'ไม่พบรหัสหน่วยบริการนี้', 'error');
+
+      showLoader();
+      google.script.run.withSuccessHandler(res => {
+        hideLoader();
+        if(res.success) {
+          Swal.fire('สำเร็จ', 'ส่งข้อมูลแจ้งซ่อมเรียบร้อยแล้ว', 'success');
+          document.getElementById('repairForm').reset();
+        } else Swal.fire('ข้อผิดพลาด', res.error, 'error');
+      }).submitRepair(code, name, issue);
+    }
+
+    function searchMaterialFiles() {
+      let code = document.getElementById('dlUnitCode').value.trim();
+      let name = document.getElementById('dlUnitName').value;
+      if(!name) return Swal.fire('ผิดพลาด', 'กรุณากรอกรหัสหน่วยบริการให้ถูกต้อง', 'error');
+
+      showLoader();
+      google.script.run.withSuccessHandler(res => {
+        hideLoader();
+        let html = '<table class="w-full text-left border-collapse text-sm whitespace-nowrap"><thead class="bg-gray-100"><tr><th class="p-2 border">วันที่ส่งเบิก</th><th class="p-2 border">สถานะ</th><th class="p-2 border">หมายเหตุ</th><th class="p-2 border">วันที่ Admin ตอบกลับ</th><th class="p-2 border">ใบเบิกของ</th><th class="p-2 border">ใบอนุมัติเบิกของ</th><th class="p-2 border">ดาวน์โหลดไฟล์ Excel</th><th class="p-2 border">จัดการ</th></tr></thead><tbody>';
+
+        const dlBtn = (url, label, icon) => {
+          const direct = getDirectDownloadUrl(url);
+          return `<a href="${direct}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 shadow-sm transition"><i class="fa-solid ${icon}"></i> ${label}</a>`;
+        };
+
+        if (res.length === 0) {
+          html = '<p class="text-gray-400 text-center py-4 border rounded-lg">ไม่พบประวัติการทำรายการของหน่วยบริการนี้</p>';
+        } else {
+          res.forEach(item => {
+            let statusColor = (item.status === 'สำเร็จ' || item.status === 'จัดของแล้ว' || item.status === 'จัดแล้ว') ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+            let adminFileUrl = item.adminFile ? item.adminFile.trim() : '';
+            let fileLink = adminFileUrl ? dlBtn(adminFileUrl, 'ดาวน์โหลด Excel', 'fa-file-arrow-down') : '<span class="text-gray-400">ยังไม่มีไฟล์</span>';
+            let pdfLink = '<span class="text-gray-400">-</span>';
+            if (item.hasItems) {
+              pdfLink = `<div class="inline-flex items-center gap-1.5">` +
+                `<button type="button" onclick="openReqPrint(${item.rowIndex}, '${esc(code)}', '${esc(name)}', '${esc(item.date)}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 shadow-sm transition"><i class="fa-solid fa-print"></i> ใบเบิก</button>` +
+                `<button type="button" onclick="downloadReqXls(${item.rowIndex}, '${esc(code)}', '${esc(name)}', '${esc(item.date)}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1 shadow-sm transition" title="ดาวน์โหลดไฟล์ .xls"><i class="fa-solid fa-file-excel"></i> .xls</button>` +
+                `</div>`;
+            } else if (item.pdfFile) {
+              pdfLink = dlBtn(item.pdfFile, 'ใบเบิก', 'fa-file-pdf');
+            }
+            let approvalLink = item.approvalFile ? dlBtn(item.approvalFile, 'ใบอนุมัติ', 'fa-file-circle-check') : '<span class="text-gray-400">ยังไม่มีไฟล์</span>';
+
+            let manage = '<span class="text-gray-300">-</span>';
+            if (item.canEdit) {
+              manage = `<button type="button" onclick="startEditLatest(${item.rowIndex})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1.5 rounded-md text-xs font-medium inline-flex items-center gap-1.5 shadow-sm transition"><i class="fa-solid fa-pen-to-square"></i> แก้ไขรายการ</button>`;
+            } else if (item.editLock) {
+              manage = `<span class="text-xs text-gray-400">${esc(item.editLock)}</span>`;
+            }
+
+            html += `<tr>
+              <td class="p-2 border">${esc(item.date)}</td>
+              <td class="p-2 border"><span class="px-2 py-1 rounded-full text-xs ${statusColor}">${esc(item.status)}</span></td>
+              <td class="p-2 border">${esc(item.note) || '-'}</td>
+              <td class="p-2 border">${esc(item.adminDate) || '-'}</td>
+              <td class="p-2 border">${pdfLink}</td>
+              <td class="p-2 border">${approvalLink}</td>
+              <td class="p-2 border">${fileLink}</td>
+              <td class="p-2 border">${manage}</td>
+            </tr>`;
+          });
+          html += '</tbody></table>';
+        }
+        document.getElementById('downloadResultsContainer').innerHTML = html;
+      }).searchAdminFiles(code);
+    }
+
+      async function loginAdmin() {
+     const pin = document.getElementById('adminPin').value;
+     showLoader();
+     try {
+       const ok = await adminLoginApi(pin);
+       hideLoader();
+       if (ok) {
+         document.getElementById('adminLogin').classList.add('hidden');
+         document.getElementById('adminDashboard').classList.remove('hidden');
+       } else Swal.fire('ผิดพลาด', 'รหัสผ่านไม่ถูกต้อง', 'error');
+     } catch (e) {
+       hideLoader();
+       Swal.fire('ข้อผิดพลาด', e.message, 'error');
+     }
+   }
+
+   function logoutAdmin() {
+     adminLogoutApi();
+     document.getElementById('adminLogin').classList.remove('hidden');
+     document.getElementById('adminDashboard').classList.add('hidden');
+     document.getElementById('adminPin').value = '';
+     document.getElementById('adminTableContainer').innerHTML = '';
+   }
+
+    function loadAdminData(type) {
+      showLoader();
+      let sheetName = type === 'req' ? 'รับข้อมูล' : 'แจ้งซ่อม';
+      google.script.run.withSuccessHandler(data => {
+        hideLoader();
+        renderAdminTable(type, data);
+      }).getAdminData(sheetName);
+    }
+
+    function updateAdminFileLabel(inputEl, labelId, defaultText) {
+      const lbl = document.getElementById(labelId);
+      if (!lbl) return;
+      if (inputEl && inputEl.files && inputEl.files.length > 0) {
+        const fname = inputEl.files[0].name;
+        lbl.textContent = fname.length > 16 ? fname.slice(0, 14) + '…' : fname;
+        lbl.title = fname;
+        lbl.parentElement.classList.add('border-blue-400', 'bg-blue-50', 'text-blue-700');
+      } else {
+        lbl.textContent = defaultText;
+        lbl.title = '';
+        lbl.parentElement.classList.remove('border-blue-400', 'bg-blue-50', 'text-blue-700');
+      }
+    }
+
+    function renderAdminTable(type, data) {
+      if (!data || data.length === 0) {
+        document.getElementById('adminTableContainer').innerHTML = '<p class="text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-xl">ไม่มีข้อมูลรายการ</p>';
+        return;
+      }
+
+      let html = '<div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm"><table class="w-full text-left border-collapse text-xs sm:text-sm">';
+      if (type === 'req') {
+        html += `<thead class="bg-slate-100/90 text-slate-600 text-xs font-semibold border-b border-slate-200"><tr>
+            <th class="p-2.5 w-[112px]">วัน-เวลา</th>
+            <th class="p-2.5 min-w-[140px] max-w-[185px]">หน่วยบริการ</th>
+            <th class="p-2.5 w-[150px] text-center">เอกสารใบเบิก</th>
+            <th class="p-2.5 w-[120px]">สถานะ</th>
+            <th class="p-2.5 min-w-[130px]">หมายเหตุ</th>
+            <th class="p-2.5 w-[140px]">ไฟล์ตอบกลับ</th>
+            <th class="p-2.5 w-[140px]">ใบอนุมัติ</th>
+            <th class="p-2.5 w-[125px] text-right">จัดการ</th>
+          </tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+        data.forEach(row => {
+          let d = row.data;
+          let userFileDirect = getDirectDownloadUrl(d[2]);
+          let adminFileDirect = getDirectDownloadUrl(d[5]);
+          const hasOnlineItems = (row.hasItems !== undefined) ? row.hasItems : (!!d[8] || !d[2]);
+          let xlsBtn = '';
+          if (hasOnlineItems) {
+            xlsBtn = `<button type="button" onclick="downloadReqXls(${row.rowIndex}, '${esc(d[0])}', '${esc(d[1])}', '${esc(d[3])}')" class="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium inline-flex items-center gap-1 transition" title="ดาวน์โหลดไฟล์ .xls (CPN)"><i class="fa-solid fa-file-excel"></i> .xls</button>`;
+          } else if (d[2]) {
+            xlsBtn = `<a href="${userFileDirect}" class="px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-medium inline-flex items-center gap-1 transition"><i class="fa-solid fa-file-excel"></i> Excel</a>`;
+          }
+
+          let pdfUrl = d[8] || '';
+          let approvalUrl = d[9] || '';
+          let pdfBtn = '';
+          if (hasOnlineItems) {
+            pdfBtn = `<button type="button" onclick="openReqPrint(${row.rowIndex}, '${esc(d[0])}', '${esc(d[1])}', '${esc(d[3])}')" class="px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-medium inline-flex items-center gap-1 transition" title="เปิดพิมพ์ใบเบิก A4"><i class="fa-solid fa-print"></i> ใบเบิก</button>` +
+              (pdfUrl ? `<button type="button" onclick="delReqFile(${row.rowIndex}, 'pdf')" class="text-red-400 hover:text-red-600 text-xs px-1" title="ลบไฟล์ใบเบิกเดิมใน Drive"><i class="fa-solid fa-trash"></i></button>` : '');
+          } else if (pdfUrl) {
+            pdfBtn = `<a href="${esc(pdfUrl)}" target="_blank" rel="noopener" class="px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-medium inline-flex items-center gap-1 transition"><i class="fa-solid fa-file-pdf"></i> ใบเบิก</a>` +
+              `<button type="button" onclick="delReqFile(${row.rowIndex}, 'pdf')" class="text-red-400 hover:text-red-600 text-xs px-1" title="ลบไฟล์ใบเบิก"><i class="fa-solid fa-trash"></i></button>`;
+          }
+
+          const docCell = (xlsBtn || pdfBtn)
+            ? `<div class="inline-flex flex-wrap items-center justify-center gap-1">${xlsBtn}${pdfBtn}</div>`
+            : '<span class="text-slate-300">-</span>';
+
+          let adminFileLink = d[5]
+            ? `<div class="mt-1"><a href="${adminFileDirect}" class="text-emerald-600 hover:underline text-[11px] font-medium inline-flex items-center gap-1"><i class="fa-solid fa-circle-check"></i>ไฟล์ที่ส่งแล้ว</a></div>`
+            : '';
+
+          let approvalLink = approvalUrl
+            ? `<div class="mt-1 inline-flex items-center gap-1.5"><a href="${esc(approvalUrl)}" target="_blank" rel="noopener" class="text-blue-600 hover:underline text-[11px] font-medium"><i class="fa-solid fa-file-circle-check mr-0.5"></i>ดูใบอนุมัติ</a>` +
+              `<button type="button" onclick="delReqFile(${row.rowIndex}, 'approval')" class="text-red-400 hover:text-red-600 text-[11px]" title="ลบไฟล์ใบอนุมัติ"><i class="fa-solid fa-trash"></i></button></div>`
+            : '';
+
+          html += `<tr class="hover:bg-slate-50/80 transition-colors align-middle">
+            <td class="p-2.5 text-xs text-slate-500 leading-snug">${esc(d[3])}</td>
+            <td class="p-2.5">
+              <div class="font-medium text-slate-800 leading-snug">${esc(d[1])}</div>
+              <div class="text-[11px] text-slate-400">รหัส: ${esc(d[0])}</div>
+            </td>
+            <td class="p-2.5 text-center">${docCell}</td>
+            <td class="p-2.5">
+              <select id="status_${row.rowIndex}" class="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white w-full focus:outline-none focus:ring-2 focus:ring-blue-200">
+                <option value="รอจัดของ" ${d[4]=='รอจัดของ'?'selected':''}>รอจัดของ</option>
+                <option value="ของไม่ครบ" ${d[4]=='ของไม่ครบ'?'selected':''}>ของไม่ครบ</option>
+                <option value="จัดของแล้ว" ${d[4]=='จัดของแล้ว'?'selected':''}>จัดของแล้ว</option>
+                <option value="สำเร็จ" ${d[4]=='สำเร็จ'?'selected':''}>สำเร็จ</option>
+              </select>
+            </td>
+            <td class="p-2.5">
+              <input type="text" id="reqNote_${row.rowIndex}" value="${esc(d[7])}" class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs w-full focus:outline-none focus:ring-2 focus:ring-blue-200" placeholder="เพิ่มหมายเหตุ...">
+            </td>
+            <td class="p-2.5">
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition w-full justify-center">
+                <i class="fa-solid fa-paperclip text-[11px]"></i>
+                <span id="lblFile_${row.rowIndex}" class="truncate">แนบไฟล์ตอบกลับ</span>
+                <input type="file" id="adminFile_${row.rowIndex}" class="hidden" onchange="updateAdminFileLabel(this, 'lblFile_${row.rowIndex}', 'แนบไฟล์ตอบกลับ')">
+              </label>
+              ${adminFileLink}
+            </td>
+            <td class="p-2.5">
+              <label class="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition w-full justify-center">
+                <i class="fa-solid fa-file-shield text-[11px]"></i>
+                <span id="lblApp_${row.rowIndex}" class="truncate">แนบใบอนุมัติ</span>
+                <input type="file" id="adminApproval_${row.rowIndex}" class="hidden" onchange="updateAdminFileLabel(this, 'lblApp_${row.rowIndex}', 'แนบใบอนุมัติ')">
+              </label>
+              ${approvalLink}
+            </td>
+            <td class="p-2.5 text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <button onclick="updateReq(${row.rowIndex})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium shadow-sm transition">บันทึก & เมล</button>
+                <button onclick="delReq(${row.rowIndex})" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-2 py-1.5 rounded-lg text-xs transition" title="ลบรายการ"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>`;
+        });
+      } else {
+        html += `<thead class="bg-slate-100/90 text-slate-600 text-xs font-semibold border-b border-slate-200"><tr>
+            <th class="p-2.5 w-[115px]">เวลาแจ้ง</th>
+            <th class="p-2.5 min-w-[150px]">หน่วยบริการ</th>
+            <th class="p-2.5 min-w-[220px]">อาการ / ปัญหา</th>
+            <th class="p-2.5 w-[120px]">สถานะ</th>
+            <th class="p-2.5 w-[105px]">ราคา (บาท)</th>
+            <th class="p-2.5 min-w-[150px]">หมายเหตุ</th>
+            <th class="p-2.5 w-[115px] text-right">จัดการ</th>
+          </tr></thead><tbody class="divide-y divide-slate-100 bg-white">`;
+        data.forEach(row => {
+          let d = row.data;
+          html += `<tr class="hover:bg-slate-50/80 transition-colors align-middle">
+            <td class="p-2.5 text-xs text-slate-500">${esc(d[4])}</td>
+            <td class="p-2.5 font-medium text-slate-800">${esc(d[1])}</td>
+            <td class="p-2.5 whitespace-normal text-slate-700">${esc(d[2])}</td>
+            <td class="p-2.5">
+              <select id="repStatus_${row.rowIndex}" class="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white w-full">
+                <option value="รอซ่อม" ${d[3]=='รอซ่อม'?'selected':''}>รอซ่อม</option>
+                <option value="ไม่ซ่อม" ${d[3]=='ไม่ซ่อม'?'selected':''}>ไม่ซ่อม</option>
+                <option value="ซ่อมแล้ว" ${d[3]=='ซ่อมแล้ว'?'selected':''}>ซ่อมแล้ว</option>
+              </select>
+            </td>
+            <td class="p-2.5"><input type="number" id="repPrice_${row.rowIndex}" value="${esc(d[5])}" class="border border-slate-200 rounded-lg px-2 py-1.5 text-xs w-full"></td>
+            <td class="p-2.5"><input type="text" id="repNote_${row.rowIndex}" value="${esc(d[6])}" class="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs w-full" placeholder="เพิ่มหมายเหตุ..."></td>
+            <td class="p-2.5 text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <button onclick="updateRep(${row.rowIndex})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium shadow-sm transition">บันทึก</button>
+                <button onclick="delRep(${row.rowIndex})" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-2 py-1.5 rounded-lg text-xs transition" title="ลบรายการ"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>`;
+        });
+      }
+      html += '</tbody></table></div>';
+      document.getElementById('adminTableContainer').innerHTML = html;
+    }
+
+    async function updateReq(rowIndex) {
+      let status = document.getElementById('status_' + rowIndex).value;
+      let note = document.getElementById('reqNote_' + rowIndex).value;
+      let fileInput = document.getElementById('adminFile_' + rowIndex);
+      let approvalInput = document.getElementById('adminApproval_' + rowIndex);
+      showLoader();
+      let fileObj = await getFileObj(fileInput);
+      let approvalObj = await getFileObj(approvalInput);
+
+      google.script.run.withSuccessHandler(res => {
+        hideLoader();
+        if(res.success) {
+          if (res.emailSent) Swal.fire({icon: 'success', title: 'อัปเดตและส่ง Email สำเร็จ', timer: 1500});
+          else Swal.fire('ข้อควรระวัง', 'อัปเดตข้อมูลและไฟล์สำเร็จ \nแต่ส่งอีเมลไม่ได้: ' + res.emailError, 'warning');
+          loadAdminData('req');
+        } else Swal.fire('ข้อผิดพลาดจากเซิร์ฟเวอร์', res.error, 'error');
+      }).withFailureHandler(err => {
+        hideLoader();
+        Swal.fire('ข้อผิดพลาด', err.message, 'error');
+      }).updateRequisitionStatus(rowIndex, status, fileObj, note, approvalObj);
+    }
+
+    // ลบไฟล์ใบเบิก (pdf) หรือใบอนุมัติ (approval) ของแถวนั้น โดยแถวข้อมูลยังอยู่
+    function delReqFile(rowIndex, kind) {
+      const label = kind === 'pdf' ? 'ใบเบิกของ (PDF)' : 'ใบอนุมัติเบิกของ';
+      Swal.fire({
+        title: 'ลบไฟล์' + label + '?', text: 'ไฟล์ใน Google Drive จะถูกลบ และหน่วยบริการจะดาวน์โหลดไฟล์นี้ไม่ได้อีก',
+        icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'ลบไฟล์', cancelButtonText: 'ยกเลิก'
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+        showLoader();
+        google.script.run.withSuccessHandler(res => {
+          hideLoader();
+          if (!res.success) return Swal.fire('ข้อผิดพลาด', res.error, 'error');
+          let msg = 'ลบไฟล์เรียบร้อยแล้ว';
+          if (res.mode === 'trashed') msg = 'ย้ายไฟล์ไปถังขยะ Drive แล้ว (ยังนับพื้นที่จนกว่าจะล้างถังขยะ)';
+          else if (res.mode === 'missing') msg = 'ไม่พบไฟล์ใน Drive แล้ว ล้างลิงก์ให้เรียบร้อย';
+          Swal.fire({ icon: 'success', title: 'สำเร็จ', text: msg, timer: 2500 });
+          loadAdminData('req');
+        }).withFailureHandler(err => {
+          hideLoader();
+          Swal.fire('ข้อผิดพลาด', err.message, 'error');
+        }).deleteRequisitionFile(rowIndex, kind);
+      });
+    }
+
+    function delReq(rowIndex) {
+      Swal.fire({
+        title: 'ยืนยันการลบ?', text: "ข้อมูลและไฟล์ทั้งหมดของรายการนี้ (รวมใบเบิกและใบอนุมัติ) จะถูกลบ", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          showLoader();
+          google.script.run.withSuccessHandler(res => {
+            hideLoader();
+            if(res.success) loadAdminData('req');
+            else Swal.fire('Error', res.error, 'error');
+          }).deleteRequisition(rowIndex);
+        }
+      });
+    }
+
+    function updateRep(rowIndex) {
+      let status = document.getElementById('repStatus_' + rowIndex).value;
+      let price = document.getElementById('repPrice_' + rowIndex).value;
+      let note = document.getElementById('repNote_' + rowIndex).value;
+      showLoader();
+      google.script.run.withSuccessHandler(res => {
+        hideLoader();
+        if(res.success) {
+          Swal.fire({icon: 'success', title: 'บันทึกข้อมูลสำเร็จ', timer: 1500});
+          loadAdminData('repair');
+        } else Swal.fire('ข้อผิดพลาดจากเซิร์ฟเวอร์', res.error, 'error');
+      }).updateRepairStatus(rowIndex, status, price, note);
+    }
+
+    // ลบรายการแจ้งซ่อม (ใหม่)
+    function delRep(rowIndex) {
+      Swal.fire({
+        title: 'ยืนยันการลบ?', text: "รายการแจ้งซ่อมนี้จะถูกลบถาวร", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          showLoader();
+          google.script.run.withSuccessHandler(res => {
+            hideLoader();
+            if(res.success) {
+              Swal.fire({icon: 'success', title: 'ลบรายการสำเร็จ', timer: 1200});
+              loadAdminData('repair');
+            } else Swal.fire('ข้อผิดพลาด', res.error, 'error');
+          }).deleteRepair(rowIndex);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
