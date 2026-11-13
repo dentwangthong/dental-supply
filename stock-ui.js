@@ -68,7 +68,7 @@
     var m = document.createElement('div');
     m.id = 'stkModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9500;overflow-y:auto;padding:12px';
-    m.innerHTML = '<div class="bg-white rounded-xl shadow-xl w-full ' + (wide ? 'max-w-4xl' : 'max-w-lg') + ' mx-auto mt-6 mb-6 p-5">' +
+    m.innerHTML = '<div class="bg-white rounded-xl shadow-xl w-full ' + (wide === 'xl' ? 'max-w-5xl' : (wide ? 'max-w-4xl' : 'max-w-lg')) + ' mx-auto mt-6 mb-6 p-5">' +
       '<div class="flex justify-between items-start mb-3"><h3 class="text-lg font-medium text-gray-700">' + title + '</h3>' +
       '<button type="button" onclick="STK.close()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" aria-label="ปิด">&times;</button></div>' +
       '<div id="stkModalBody">' + body + '</div></div>';
@@ -558,39 +558,88 @@
     return '<span class="' + cls + '">' + (o.diff > 0 ? '+' : '') + nf(o.diff) + '<span class="text-[11px]"> (' + (o.diffPct > 0 ? '+' : '') + o.diffPct + '%)</span></span>';
   }
 
+  function formatGroupedCopy(items) {
+    var groups = {};
+    items.forEach(function (x) {
+      var c = String(x.company || 'ไม่ระบุบริษัท').trim() || 'ไม่ระบุบริษัท';
+      if (!groups[c]) groups[c] = [];
+      groups[c].push('- ' + x.line);
+    });
+    return Object.keys(groups).sort(function (a, b) {
+      return a.localeCompare(b, 'th');
+    }).map(function (c) {
+      return '[' + c + ']\n' + groups[c].join('\n');
+    }).join('\n\n');
+  }
+  async function copyGroupedItems(items, countLabel) {
+    if (!items.length) return fail('ยังไม่ได้เลือกรายการที่จะคัดลอก');
+    var text = formatGroupedCopy(items);
+    try { await copyText(text); }
+    catch (e) {
+      return Swal.fire({ title: 'คัดลอกอัตโนมัติไม่ได้ ให้คัดลอกข้อความนี้เอง', html: '<textarea readonly class="swal2-textarea" style="height:180px">' + esc(text) + '</textarea>' });
+    }
+    toast('คัดลอกแยกตามบริษัทแล้ว ' + (countLabel || items.length) + ' รายการ');
+  }
   async function renderOrders() {
     await loadOrders(true);
     S.sel = {};
     var st = ['all'].concat(S.orders.statuses);
     var fy = Number(S.orders.fy);
-    body('<div class="flex flex-wrap items-center gap-2 mb-3"><input id="oq" placeholder="ค้นหารายการ / บริษัท" value="' + esc(S.of.q) + '" oninput="STK.filterOrders()" class="' + INPUT + ' md:w-64">' +
+    var alertCnt = getAlertStockItems().length;
+    var sortOpts = [['row_desc', 'ล่าสุด (แถวใหม่สุด)'], ['company_asc', 'เรียงตามชื่อบริษัท (ก-ฮ / A-Z)']];
+    body('<div class="flex flex-wrap items-center gap-2 mb-3"><input id="oq" placeholder="ค้นหารายการ / บริษัท" value="' + esc(S.of.q) + '" oninput="STK.filterOrders()" class="' + INPUT + ' md:w-56">' +
       '<select id="os" onchange="STK.filterOrders()" class="border rounded-lg px-3 py-1.5 text-sm">' + st.map(function (s) { return '<option value="' + esc(s) + '"' + (S.of.status === s ? ' selected' : '') + '>' + (s === 'all' ? 'ทุกสถานะ' : esc(s)) + '</option>'; }).join('') + '</select>' +
+      '<button type="button" onclick="STK.openOrderCheck()" class="' + BTN + 'bg-amber-500 text-white hover:bg-amber-600 font-medium shadow-sm"><i class="fa-solid fa-triangle-exclamation mr-1"></i>ตรวจสอบวัสดุใกล้หมด / หมด / หมดอายุ (' + alertCnt + ')</button>' +
       '<button type="button" onclick="STK.orderForm(0)" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600"><i class="fa-solid fa-plus mr-1"></i>เพิ่มรายการสั่งซื้อ</button>' +
       '<button type="button" onclick="STK.copySel()" class="' + BTN + 'bg-emerald-500 text-white hover:bg-emerald-600"><i class="fa-regular fa-copy mr-1"></i>คัดลอกที่เลือก (<span id="selN">0</span>)</button>' +
       '<button type="button" onclick="STK.createSet && STK.createSet()" class="' + BTN + 'bg-indigo-500 text-white hover:bg-indigo-600"><i class="fa-solid fa-layer-group mr-1"></i>สร้างชุดจัดซื้อจากที่เลือก</button>' +
       '<label class="flex items-center gap-1 text-sm text-gray-600"><input type="checkbox" id="copyTh" checked> แปลหน่วยเป็นไทย</label></div>' +
-      '<p class="text-xs text-gray-500 mb-1">ปีงบ ' + fy + ' · นับยอดสั่งเทียบแผนตั้งแต่ 1 ต.ค. ' + (fy - 1) + ' เป็นต้นไป เฉพาะสถานะ "สั่งสินค้าแล้ว" ขึ้นไป (ใบเสนอราคาไม่นับ) · เตือนเมื่อราคาสูงกว่าแผนเกิน ' + nf(S.orders.warnPct) + '%</p>' +
+      '<div class="flex flex-wrap items-center justify-between gap-2 mb-1">' +
+        '<p class="text-xs text-gray-500">ปีงบ ' + fy + ' · นับยอดสั่งเทียบแผนตั้งแต่ 1 ต.ค. ' + (fy - 1) + ' เป็นต้นไป เฉพาะสถานะ "สั่งสินค้าแล้ว" ขึ้นไป (ใบเสนอราคาไม่นับ) · เตือนเมื่อราคาสูงกว่าแผนเกิน ' + nf(S.orders.warnPct) + '%</p>' +
+        '<div class="flex items-center gap-1.5 text-xs"><span class="text-gray-500">เรียงตาราง:</span><select id="oSort" onchange="STK.filterOrders()" class="border rounded-lg px-2 py-1 bg-white">' +
+          sortOpts.map(function (o) { return '<option value="' + o[0] + '"' + ((S.of.sort || 'row_desc') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
+        '</select></div>' +
+      '</div>' +
       '<div id="ocmp" class="text-sm mb-2"></div>' +
       '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr><th class="' + TH + '"><input type="checkbox" aria-label="เลือกทั้งหมด" onchange="STK.selAll(this.checked)"></th>' +
       ['แถว', 'วันที่สั่ง', 'รายการ', 'บริษัท', 'จำนวน', 'ราคาที่สั่ง', 'ราคาแผน', 'ส่วนต่าง', 'สถานะ', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') + '</tr></thead><tbody id="obody"></tbody></table></div>');
     drawOrders();
   }
-  STK.filterOrders = function () { S.of.q = $('oq').value; S.of.status = $('os').value; drawOrders(); };
+  STK.filterOrders = function () {
+    S.of.q = $('oq').value;
+    S.of.status = $('os').value;
+    if ($('oSort')) S.of.sort = $('oSort').value;
+    drawOrders();
+  };
   function updateSelN() { var n = Object.keys(S.sel).filter(function (k) { return S.sel[k]; }).length; if ($('selN')) $('selN').textContent = n; }
   STK.toggleSel = function (row, on) { S.sel[row] = on; updateSelN(); };
   STK.selAll = function (on) { (S.shown || []).forEach(function (o) { S.sel[o.row] = on; }); drawOrders(); };
   function selectedOrders() { return S.orders.orders.filter(function (o) { return S.sel[o.row]; }); }
-  STK.copySel = function () { var th = useThai(); doCopy(selectedOrders().map(function (o) { return copyLine(o.name, o.qty, o.unit, th); })); };
+  STK.copySel = function () {
+    var th = useThai();
+    var list = selectedOrders().map(function (o) {
+      return { company: o.company || 'ไม่ระบุบริษัท', line: copyLine(o.name, o.qty, o.unit, th) };
+    });
+    copyGroupedItems(list, list.length);
+  };
   STK.copyOne = function (row) {
     var o = S.orders.orders.filter(function (x) { return x.row === row; })[0];
     if (o) doCopy([copyLine(o.name, o.qty, o.unit, useThai())]);
   };
   function drawOrders() {
     var q = S.of.q.trim().toLowerCase(), warn = S.orders.warnPct;
+    var sortBy = S.of.sort || 'row_desc';
     var rows = S.orders.orders.filter(function (o) {
       if (S.of.status !== 'all' && o.status !== S.of.status) return false;
       return !q || (o.name + ' ' + o.company + ' ' + o.p151).toLowerCase().indexOf(q) >= 0;
     });
+    if (sortBy === 'company_asc') {
+      rows.sort(function (a, b) {
+        return String(a.company || 'ฮฮฮ').localeCompare(String(b.company || 'ฮฮฮ'), 'th') || (b.row - a.row);
+      });
+    } else {
+      rows.sort(function (a, b) { return b.row - a.row; });
+    }
     S.shown = rows;
     var sum = 0, n = 0;
     rows.forEach(function (o) { if (o.diff !== null) { sum += o.diff * o.qty; n++; } });
@@ -611,27 +660,362 @@
     }).join('') || '<tr><td colspan="11" class="p-4 text-center text-gray-400">ไม่พบรายการ</td></tr>';
     updateSelN();
   }
-  STK.orderForm = async function (row) {
+  // ---------- ตรวจสอบวัสดุใกล้หมด / หมด / ใกล้หมดอายุ / หมดอายุ เพื่อสั่งซื้อ ----------
+  function getAlertStockItems() {
+    var items = (S.board && S.board.items) ? S.board.items : [];
+    return items.filter(function (it) {
+      return it.status === 'หมด' || it.status === 'ใกล้หมด' || it.nearQty > 0 || it.expQty > 0;
+    });
+  }
+
+  var alertFilter = 'all';
+  var alertSel = {};
+  STK.openOrderCheck = function () {
+    alertFilter = 'all';
+    alertSel = {};
+    modal('ตรวจสอบวัสดุที่ หมด / ใกล้หมด / ใกล้หมดอายุ / หมดอายุแล้ว',
+      '<div class="space-y-3">' +
+        '<div class="text-xs text-gray-500">ติ๊กเลือกรายการที่ต้องการสั่งซื้อ แล้วกด <b>"สั่งซื้อรายการที่เลือก"</b> เพื่อกรอกรายละเอียดการสั่งซื้อแบบแนวนอน</div>' +
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<input id="chkAlertQ" oninput="STK.renderAlertList()" placeholder="ค้นหาชื่อ / รหัส D / P151..." class="' + INPUT + ' md:w-64">' +
+          '<div id="chkAlertTabs" class="flex flex-wrap gap-1.5 text-xs"></div>' +
+        '</div>' +
+        '<div class="overflow-x-auto max-h-[52vh] border rounded-lg">' +
+          '<table class="w-full text-sm border-collapse">' +
+            '<thead class="bg-gray-100 text-xs text-gray-600 sticky top-0">' +
+              '<tr>' +
+                '<th class="' + TH + ' text-center w-9"><input type="checkbox" id="chkAlertAll" onchange="STK.toggleAllAlerts(this.checked)"></th>' +
+                '<th class="' + TH + '">รายการวัสดุ</th>' +
+                '<th class="' + TH + ' text-right">คงเหลือ / Min</th>' +
+                '<th class="' + TH + ' text-center">สถานะสต็อก / วันหมดอายุ</th>' +
+                '<th class="' + TH + ' text-right">สั่งแล้ว / แผนปี ' + esc(S.orders && S.orders.fy || '') + '</th>' +
+                '<th class="' + TH + ' text-right">แนะนำสั่ง</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody id="chkAlertBody" class="divide-y"></tbody>' +
+          '</table>' +
+        '</div>' +
+        '<div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t">' +
+          '<div class="text-xs text-gray-600">เลือกไว้ <b id="chkAlertCount" class="text-blue-700">0</b> รายการ</div>' +
+          '<div class="flex gap-2">' +
+            '<button type="button" onclick="STK.close()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200">ปิด</button>' +
+            '<button type="button" id="btnProceedAlertOrder" onclick="STK.proceedAlertOrders()" disabled class="' + BTN + 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 font-medium"><i class="fa-solid fa-cart-plus mr-1"></i>สั่งซื้อรายการที่เลือก (<span id="chkAlertBtnN">0</span>)</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>', 'xl');
+    STK.renderAlertList();
+  };
+
+  STK.setAlertFilter = function (f) { alertFilter = f; STK.renderAlertList(); };
+  STK.toggleAlertItem = function (id, on) { alertSel[id] = on; updateAlertSelCount(); };
+  STK.toggleAllAlerts = function (on) {
+    getFilteredAlerts().forEach(function (it) { alertSel[it.id] = on; });
+    STK.renderAlertList();
+  };
+  function getFilteredAlerts() {
+    var q = ($('chkAlertQ') && $('chkAlertQ').value.trim().toLowerCase()) || '';
+    return getAlertStockItems().filter(function (it) {
+      if (q && (it.name + ' ' + it.id + ' ' + it.p151 + ' ' + it.cpn).toLowerCase().indexOf(q) < 0) return false;
+      if (alertFilter === 'out') return it.status === 'หมด';
+      if (alertFilter === 'low') return it.status === 'ใกล้หมด';
+      if (alertFilter === 'nearExp') return it.nearQty > 0;
+      if (alertFilter === 'expired') return it.expQty > 0;
+      return true;
+    });
+  }
+  function updateAlertSelCount() {
+    var n = Object.keys(alertSel).filter(function (k) { return alertSel[k]; }).length;
+    if ($('chkAlertCount')) $('chkAlertCount').textContent = n;
+    if ($('chkAlertBtnN')) $('chkAlertBtnN').textContent = n;
+    if ($('btnProceedAlertOrder')) $('btnProceedAlertOrder').disabled = n === 0;
+  }
+  STK.renderAlertList = function () {
+    var all = getAlertStockItems();
+    var cnt = {
+      all: all.length,
+      out: all.filter(function (x) { return x.status === 'หมด'; }).length,
+      low: all.filter(function (x) { return x.status === 'ใกล้หมด'; }).length,
+      nearExp: all.filter(function (x) { return x.nearQty > 0; }).length,
+      expired: all.filter(function (x) { return x.expQty > 0; }).length
+    };
+    var tabs = [
+      ['all', 'ทั้งหมด (' + cnt.all + ')', 'bg-slate-800 text-white', 'bg-gray-100 text-gray-700'],
+      ['out', 'หมด (' + cnt.out + ')', 'bg-red-600 text-white', 'bg-red-50 text-red-700 border border-red-200'],
+      ['low', 'ใกล้หมด (' + cnt.low + ')', 'bg-amber-500 text-white', 'bg-amber-50 text-amber-800 border border-amber-200'],
+      ['nearExp', 'ใกล้หมดอายุ (' + cnt.nearExp + ')', 'bg-orange-500 text-white', 'bg-orange-50 text-orange-800 border border-orange-200'],
+      ['expired', 'หมดอายุแล้ว (' + cnt.expired + ')', 'bg-rose-600 text-white', 'bg-rose-50 text-rose-700 border border-rose-200']
+    ];
+    if ($('chkAlertTabs')) {
+      $('chkAlertTabs').innerHTML = tabs.map(function (t) {
+        return '<button type="button" onclick="STK.setAlertFilter(\'' + t[0] + '\')" class="px-2.5 py-1 rounded-full font-medium ' + (alertFilter === t[0] ? t[2] : t[3]) + '">' + t[1] + '</button>';
+      }).join('');
+    }
+    var rows = getFilteredAlerts();
+    if ($('chkAlertBody')) {
+      $('chkAlertBody').innerHTML = rows.map(function (it) {
+        var badges = [];
+        if (it.status === 'หมด') badges.push('<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-medium">หมด</span>');
+        if (it.status === 'ใกล้หมด') badges.push('<span class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 font-medium">ใกล้หมด</span>');
+        if (it.nearQty > 0) badges.push('<span class="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800 font-medium">ใกล้หมดอายุ ' + fd(it.nearest) + '</span>');
+        if (it.expQty > 0) badges.push('<span class="px-2 py-0.5 rounded-full text-xs bg-rose-100 text-rose-800 font-medium">หมดอายุ ' + nf(it.expQty) + '</span>');
+        if (it.ordered > 0) badges.push('<span class="px-1.5 py-0.5 rounded text-[11px] bg-sky-50 text-sky-700 border border-sky-200">สั่งแล้ว ' + nf(it.ordered) + '</span>');
+        var target = it.min > 0 ? (it.min * 2) : 1;
+        var suggest = Math.max(1, Math.ceil(target - (it.usable || 0)));
+        var planStr = it.planQty === null ? '-' : (nf(it.ordered) + ' / ' + nf(it.planQty));
+        return '<tr class="hover:bg-gray-50">' +
+          '<td class="p-2 text-center"><input type="checkbox" ' + (alertSel[it.id] ? 'checked' : '') + ' onchange="STK.toggleAlertItem(\'' + esc(it.id) + '\',this.checked)"></td>' +
+          '<td class="p-2"><div class="font-medium">' + esc(it.name) + '</div><div class="text-[11px] text-gray-400">' + esc(it.id) + ' · ' + esc(it.p151 || 'ไม่มี P151') + '</div></td>' +
+          '<td class="p-2 text-right whitespace-nowrap"><b class="' + (it.usable <= 0 ? 'text-red-600' : 'text-amber-600') + '">' + nf(it.usable) + '</b> / ' + nf(it.min) + ' ' + esc(it.unit) + '</td>' +
+          '<td class="p-2 text-center space-x-1">' + badges.join(' ') + '</td>' +
+          '<td class="p-2 text-right text-xs whitespace-nowrap">' + planStr + ' ' + esc(it.unit) + '</td>' +
+          '<td class="p-2 text-right font-semibold text-blue-700 whitespace-nowrap">' + nf(suggest) + ' ' + esc(it.unit) + '</td>' +
+        '</tr>';
+      }).join('') || '<tr><td colspan="6" class="p-6 text-center text-gray-400">ไม่มีรายการวัสดุที่ใกล้หมด / หมด / ใกล้หมดอายุ</td></tr>';
+    }
+    updateAlertSelCount();
+  };
+  STK.proceedAlertOrders = function () {
+    var picks = getAlertStockItems().filter(function (it) { return alertSel[it.id]; });
+    if (!picks.length) return;
+    STK.close();
+    STK.orderForm(0, picks);
+  };
+
+  // ---------- ฟอร์มสั่งซื้อ (แก้ไขรายแถว หรือ เพิ่มแบบแนวนอนหลายรายการ) ----------
+  var batchOrderRows = [];
+  STK.orderForm = async function (row, preItems) {
     await loadComps();
-    var o = row ? S.orders.orders.filter(function (x) { return x.row === row; })[0] : null;
-    var it = null;
-    if (o) S.board.items.forEach(function (x) { if (x.p151 === o.p151 && o.p151) it = x; });
-    var stOpts = S.orders.statuses.map(function (s) { return '<option' + ((o ? o.status : 'สั่งสินค้าแล้ว') === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
-    modal(row ? 'แก้ไขรายการสั่งซื้อ (แถว ' + row + ')' : 'เพิ่มรายการสั่งซื้อ',
-      '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
-      '<div class="md:col-span-2"><label class="text-xs text-gray-500">วัสดุ</label><input id="oItem" list="stkItems" value="' + esc(it ? itemLabel(it) : '') + '" onchange="STK.orderCheck(' + row + ',true)" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">บริษัท</label><input id="oCompany" list="stkComps" value="' + esc(o ? o.company : '') + '" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">สถานะ</label><select id="oStatus" onchange="STK.orderCheck(' + row + ')" class="' + INPUT + '">' + stOpts + '</select></div>' +
-      '<div><label class="text-xs text-gray-500">จำนวนสั่ง</label><input id="oQty" type="number" min="0" step="any" value="' + esc(o ? o.qty : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">ราคา/หน่วย (บาท) — ใส่ราคารวม VAT ให้เทียบกับแผนได้</label><input id="oPrice" type="number" min="0" step="any" value="' + esc(o ? o.price : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">วันที่แจ้ง</label><input id="oNotified" type="date" value="' + esc(o ? o.notified : today()) + '" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">วันที่สั่ง</label><input id="oOrdered" type="date" value="' + esc(o ? o.ordered : today()) + '" class="' + INPUT + '"></div>' +
-      '<div class="md:col-span-2"><label class="text-xs text-gray-500">หมายเหตุ</label><input id="oNote" value="' + esc(o ? o.note : '') + '" class="' + INPUT + '"></div>' +
-      '<div id="oCheck" class="md:col-span-2 text-sm"></div></div>' +
-      '<div class="mt-4 flex flex-wrap gap-2"><button type="button" id="oBtn" onclick="STK.orderSave(' + row + ')" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึก</button>' +
-      '<button type="button" onclick="STK.orderCopy()" class="' + BTN + 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200"><i class="fa-regular fa-copy mr-1"></i>คัดลอกชื่อ+จำนวน</button>' +
-      '<button type="button" onclick="STK.close()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200">ยกเลิก</button></div>');
-    if (it) STK.orderCheck(row);
+    if (row) {
+      var o = S.orders.orders.filter(function (x) { return x.row === row; })[0];
+      var it = null;
+      if (o) S.board.items.forEach(function (x) { if (x.p151 === o.p151 && o.p151) it = x; });
+      var stOpts = S.orders.statuses.map(function (s) { return '<option' + ((o ? o.status : 'สั่งสินค้าแล้ว') === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
+      modal('แก้ไขรายการสั่งซื้อ (แถว ' + row + ')',
+        '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+        '<div class="md:col-span-2"><label class="text-xs text-gray-500">วัสดุ</label><input id="oItem" list="stkItems" value="' + esc(it ? itemLabel(it) : '') + '" onchange="STK.orderCheck(' + row + ',true)" class="' + INPUT + '"></div>' +
+        '<div><label class="text-xs text-gray-500">บริษัท</label><input id="oCompany" list="stkComps" value="' + esc(o ? o.company : '') + '" class="' + INPUT + '"></div>' +
+        '<div><label class="text-xs text-gray-500">สถานะ</label><select id="oStatus" onchange="STK.orderCheck(' + row + ')" class="' + INPUT + '">' + stOpts + '</select></div>' +
+        '<div><label class="text-xs text-gray-500">จำนวนสั่ง</label><input id="oQty" type="number" min="0" step="any" value="' + esc(o ? o.qty : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + '"></div>' +
+        '<div><label class="text-xs text-gray-500">ราคา/หน่วย (บาท) — ใส่ราคารวม VAT ให้เทียบกับแผนได้</label><input id="oPrice" type="number" min="0" step="any" value="' + esc(o ? o.price : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + '"></div>' +
+        '<div><label class="text-xs text-gray-500">วันที่แจ้ง</label><input id="oNotified" type="date" value="' + esc(o ? o.notified : today()) + '" class="' + INPUT + '"></div>' +
+        '<div><label class="text-xs text-gray-500">วันที่สั่ง</label><input id="oOrdered" type="date" value="' + esc(o ? o.ordered : today()) + '" class="' + INPUT + '"></div>' +
+        '<div class="md:col-span-2"><label class="text-xs text-gray-500">หมายเหตุ</label><input id="oNote" value="' + esc(o ? o.note : '') + '" class="' + INPUT + '"></div>' +
+        '<div id="oCheck" class="md:col-span-2 text-sm"></div></div>' +
+        '<div class="mt-4 flex flex-wrap gap-2"><button type="button" id="oBtn" onclick="STK.orderSave(' + row + ')" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึก</button>' +
+        '<button type="button" onclick="STK.orderCopy()" class="' + BTN + 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200"><i class="fa-regular fa-copy mr-1"></i>คัดลอกชื่อ+จำนวน</button>' +
+        '<button type="button" onclick="STK.close()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200">ยกเลิก</button></div>');
+      if (it) STK.orderCheck(row);
+      return;
+    }
+
+    batchOrderRows = (preItems && preItems.length) ? preItems.map(function (it) {
+      var target = it.min > 0 ? (it.min * 2) : 1;
+      var suggest = Math.max(1, Math.ceil(target - (it.usable || 0)));
+      return { itemText: itemLabel(it), company: '', qty: suggest, price: it.planPrice || '', note: '' };
+    }) : [{ itemText: '', company: '', qty: '', price: '', note: '' }];
+
+    var stOptsNew = S.orders.statuses.map(function (s) { return '<option' + (s === 'สั่งสินค้าแล้ว' ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
+    modal('เพิ่มรายการสั่งซื้อ (กรอกแนวนอนหลายรายการพร้อมกัน)',
+      '<div class="space-y-3">' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">' +
+          '<div>' +
+            '<div class="flex items-center justify-between"><label class="text-xs text-gray-600 font-medium">บริษัทหลัก (ช่วยกรอก)</label><button type="button" onclick="STK.applyCompToAllRows()" class="text-[11px] text-blue-600 hover:underline">ใส่ให้ทุกแถว</button></div>' +
+            '<input id="boComp" list="stkComps" placeholder="เลือกหรือกรอกแยกในตาราง" class="' + INPUT + ' mt-1">' +
+          '</div>' +
+          '<div><label class="text-xs text-gray-600 font-medium">สถานะ</label><select id="boStatus" onchange="STK.recalcBatchOrderRows()" class="' + INPUT + ' mt-1">' + stOptsNew + '</select></div>' +
+          '<div><label class="text-xs text-gray-600 font-medium">วันที่แจ้ง</label><input id="boNotified" type="date" value="' + today() + '" class="' + INPUT + ' mt-1"></div>' +
+          '<div><label class="text-xs text-gray-600 font-medium">วันที่สั่ง</label><input id="boOrdered" type="date" value="' + today() + '" class="' + INPUT + ' mt-1"></div>' +
+        '</div>' +
+        '<div class="overflow-x-auto border rounded-xl max-h-[48vh]">' +
+          '<table class="w-full text-sm border-collapse">' +
+            '<thead class="bg-gray-100 text-xs text-gray-600 sticky top-0">' +
+              '<tr>' +
+                '<th class="' + TH + ' text-center w-8">#</th>' +
+                '<th class="' + TH + ' min-w-[220px]">วัสดุ (พิมพ์ค้นหา)</th>' +
+                '<th class="' + TH + ' min-w-[150px]">บริษัท (กรอกแยกได้)</th>' +
+                '<th class="' + TH + ' text-right w-24">จำนวนสั่ง</th>' +
+                '<th class="' + TH + ' text-right w-24">ราคา/หน่วย</th>' +
+                '<th class="' + TH + ' text-right w-24">รวมเงิน</th>' +
+                '<th class="' + TH + ' min-w-[175px]">เทียบแผน &amp; ราคาแผน</th>' +
+                '<th class="' + TH + ' min-w-[120px]">หมายเหตุ</th>' +
+                '<th class="' + TH + ' w-8"></th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody id="boRowsBody" class="divide-y"></tbody>' +
+          '</table>' +
+        '</div>' +
+        '<div class="flex flex-wrap items-center justify-between gap-2">' +
+          '<div class="flex flex-wrap gap-2">' +
+            '<button type="button" onclick="STK.addBatchOrderRow()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200 text-xs font-medium"><i class="fa-solid fa-plus mr-1"></i>เพิ่มรายการ</button>' +
+            '<button type="button" onclick="STK.sortBatchByCompany()" class="' + BTN + 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-medium"><i class="fa-solid fa-arrow-down-a-z mr-1"></i>เรียงตามชื่อบริษัท</button>' +
+          '</div>' +
+          '<div id="boSummary" class="text-sm text-gray-600"></div>' +
+        '</div>' +
+        '<div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t">' +
+          '<button type="button" onclick="STK.copyBatchOrderRows()" class="' + BTN + 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200"><i class="fa-regular fa-copy mr-1"></i>คัดลอกชื่อ+จำนวน (แยกตามบริษัท)</button>' +
+          '<div class="flex gap-2">' +
+            '<button type="button" onclick="STK.close()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200">ยกเลิก</button>' +
+            '<button type="button" id="boSaveBtn" onclick="STK.orderBatchSave()" class="' + BTN + 'bg-blue-600 text-white hover:bg-blue-700 font-medium"><i class="fa-solid fa-check mr-1"></i>บันทึกทั้งหมด</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>', 'xl');
+    STK.renderBatchOrderRows();
+  };
+
+  function syncBatchFromDom() {
+    var trs = document.querySelectorAll('#boRowsBody tr');
+    trs.forEach(function (tr, i) {
+      if (!batchOrderRows[i]) return;
+      batchOrderRows[i].itemText = tr.querySelector('.bo-item').value;
+      batchOrderRows[i].company = tr.querySelector('.bo-comp').value;
+      batchOrderRows[i].qty = tr.querySelector('.bo-qty').value;
+      batchOrderRows[i].price = tr.querySelector('.bo-price').value;
+      batchOrderRows[i].note = tr.querySelector('.bo-note').value;
+    });
+  }
+  STK.applyCompToAllRows = function () {
+    syncBatchFromDom();
+    var c = ($('boComp') && $('boComp').value.trim()) || '';
+    batchOrderRows.forEach(function (r) { r.company = c; });
+    STK.renderBatchOrderRows();
+  };
+  STK.sortBatchByCompany = function () {
+    syncBatchFromDom();
+    batchOrderRows.sort(function (a, b) {
+      return String(a.company || 'ฮฮฮ').localeCompare(String(b.company || 'ฮฮฮ'), 'th');
+    });
+    STK.renderBatchOrderRows();
+  };
+  STK.addBatchOrderRow = function () {
+    syncBatchFromDom();
+    var defComp = ($('boComp') && $('boComp').value.trim()) || '';
+    batchOrderRows.push({ itemText: '', company: defComp, qty: '', price: '', note: '' });
+    STK.renderBatchOrderRows();
+  };
+  STK.removeBatchOrderRow = function (i) {
+    syncBatchFromDom();
+    batchOrderRows.splice(i, 1);
+    if (!batchOrderRows.length) batchOrderRows.push({ itemText: '', company: '', qty: '', price: '', note: '' });
+    STK.renderBatchOrderRows();
+  };
+  STK.onPickBatchItem = function (i) {
+    syncBatchFromDom();
+    var it = parseItem(batchOrderRows[i].itemText);
+    if (it && !batchOrderRows[i].price && it.planPrice) {
+      batchOrderRows[i].price = it.planPrice;
+    }
+    STK.renderBatchOrderRows();
+  };
+  STK.recalcBatchOrderRows = function () {
+    syncBatchFromDom();
+    STK.renderBatchOrderRows();
+  };
+  function batchCmpHtml(it, q, p) {
+    if (!it) return '<span class="text-xs text-gray-400">เลือกวัสดุเพื่อเทียบแผน</span>';
+    if (!it.p151 || it.planQty === null) return '<span class="text-xs text-gray-400">ไม่มีในแผน</span>';
+    var after = (it.ordered || 0) + q;
+    var overQ = after > it.planQty;
+    var pct = (it.planPrice > 0 && p > 0) ? Math.round((p - it.planPrice) / it.planPrice * 1000) / 10 : null;
+    var warn = S.orders ? S.orders.warnPct : 5;
+    return '<div class="text-xs space-y-0.5">' +
+      '<div class="' + (overQ ? 'text-red-600 font-medium' : 'text-green-700') + '">แผน ' + nf(it.planQty) + ' · สั่งแล้ว ' + nf(it.ordered) + ' → ' + nf(after) + (overQ ? ' (เกินแผน)' : '') + '</div>' +
+      (it.planPrice > 0 ? '<div class="text-gray-500">ราคาแผน ' + nf(it.planPrice) + (pct !== null ? (pct > warn ? ' <b class="text-red-600">(+' + pct + '%)</b>' : (pct < 0 ? ' <span class="text-green-600">(' + pct + '%)</span>' : ' (เท่าแผน)')) : '') + '</div>' : '') +
+    '</div>';
+  }
+  STK.renderBatchOrderRows = function () {
+    var bodyEl = $('boRowsBody');
+    if (!bodyEl) return;
+    bodyEl.innerHTML = batchOrderRows.map(function (r, i) {
+      var it = parseItem(r.itemText);
+      var q = Number(r.qty) || 0, p = Number(r.price) || 0, sub = q * p;
+      return '<tr>' +
+        '<td class="p-2 text-center text-xs text-gray-400">' + (i + 1) + '</td>' +
+        '<td class="p-1.5"><input class="bo-item ' + INPUT + '" list="stkItems" value="' + esc(r.itemText) + '" onchange="STK.onPickBatchItem(' + i + ')" placeholder="พิมพ์ชื่อ/รหัสวัสดุ"></td>' +
+        '<td class="p-1.5"><input class="bo-comp ' + INPUT + '" list="stkComps" value="' + esc(r.company) + '" placeholder="เลือก/พิมพ์บริษัท"></td>' +
+        '<td class="p-1.5"><input class="bo-qty ' + INPUT + ' text-right font-medium" type="number" min="0" step="any" value="' + esc(r.qty) + '" oninput="STK.updateBatchTotals()"></td>' +
+        '<td class="p-1.5"><input class="bo-price ' + INPUT + ' text-right" type="number" min="0" step="any" value="' + esc(r.price) + '" oninput="STK.updateBatchTotals()"></td>' +
+        '<td class="p-2 text-right font-medium text-gray-700 bo-sub">' + (sub > 0 ? nf(sub) : '-') + '</td>' +
+        '<td class="p-2 bo-cmp">' + batchCmpHtml(it, q, p) + '</td>' +
+        '<td class="p-1.5"><input class="bo-note ' + INPUT + ' text-xs" value="' + esc(r.note) + '" placeholder="หมายเหตุ"></td>' +
+        '<td class="p-2 text-center"><button type="button" onclick="STK.removeBatchOrderRow(' + i + ')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-xmark"></i></button></td>' +
+      '</tr>';
+    }).join('');
+    STK.updateBatchTotals();
+  };
+  STK.updateBatchTotals = function () {
+    syncBatchFromDom();
+    var totalMoney = 0, validCount = 0;
+    document.querySelectorAll('#boRowsBody tr').forEach(function (tr, i) {
+      var r = batchOrderRows[i], it = parseItem(r.itemText);
+      var q = Number(r.qty) || 0, p = Number(r.price) || 0, sub = q * p;
+      tr.querySelector('.bo-sub').textContent = sub > 0 ? nf(sub) : '-';
+      tr.querySelector('.bo-cmp').innerHTML = batchCmpHtml(it, q, p);
+      if (it && q > 0) { totalMoney += sub; validCount++; }
+    });
+    if ($('boSummary')) $('boSummary').innerHTML = 'พร้อมบันทึก <b>' + validCount + '</b> รายการ · รวมเงิน <b class="text-blue-700">' + nf(totalMoney) + ' บาท</b>';
+  };
+  STK.copyBatchOrderRows = function () {
+    syncBatchFromDom();
+    var defComp = ($('boComp') && $('boComp').value.trim()) || '';
+    var th = useThai();
+    var valid = batchOrderRows.map(function (r) {
+      var it = parseItem(r.itemText), q = Number(r.qty) || 0;
+      if (!it || !(q > 0)) return null;
+      return {
+        company: String(r.company || defComp || 'ไม่ระบุบริษัท').trim(),
+        line: copyLine(it.name, q, it.unit, th)
+      };
+    }).filter(Boolean);
+    copyGroupedItems(valid, valid.length);
+  };
+  STK.orderBatchSave = async function () {
+    syncBatchFromDom();
+    var defComp = ($('boComp') && $('boComp').value.trim()) || '';
+    var status = $('boStatus').value, notified = $('boNotified').value, ordered = $('boOrdered').value;
+    var valid = batchOrderRows.map(function (r) {
+      var it = parseItem(r.itemText), q = Number(r.qty) || 0;
+      return (it && q > 0) ? { it: it, company: String(r.company || defComp).trim(), qty: q, price: r.price, note: r.note } : null;
+    }).filter(Boolean);
+    if (!valid.length) return fail('กรุณาเลือกวัสดุและระบุจำนวนสั่งอย่างน้อย 1 รายการ');
+
+    var btn = $('boSaveBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i>กำลังบันทึก...'; }
+    var saved = 0, sharedOverReason = '';
+    try {
+      for (var i = 0; i < valid.length; i++) {
+        var x = valid[i];
+        var p = { row: 0, itemId: x.it.id, company: x.company, qty: x.qty, price: x.price, status: status, ordered: ordered, notified: notified, note: x.note };
+        if (sharedOverReason) { p.confirmOver = true; p.overReason = sharedOverReason; }
+        var res = await call('stockSaveOrder', p);
+        if (!res) break;
+        if (!res.success && res.needConfirm) {
+          var parts = ['<b>' + esc(x.it.name) + '</b>'];
+          if (res.check) parts.push('ยอดสั่งเกินแผน: แผน ' + nf(res.check.planQty) + ' · สั่งแล้ว ' + nf(res.check.ordered) + ' · หลังสั่ง ' + nf(res.check.after));
+          if (res.priceCheck) parts.push('ราคาสูงกว่าแผน: ราคาแผน ' + nf(res.priceCheck.planPrice) + ' → กรอก ' + nf(res.priceCheck.price) + ' (+' + res.priceCheck.pct + '%)');
+          var c = await Swal.fire({
+            icon: 'warning', title: 'ต้องยืนยันก่อนบันทึก (' + (i + 1) + '/' + valid.length + ')',
+            html: '<div class="text-sm text-left">' + parts.join('<br>') + '</div>',
+            input: 'text', inputPlaceholder: 'เหตุผล เช่น ราคาตลาดขึ้น / ใช้เพิ่ม (ใช้ร่วมกับแถวที่เกินแผนได้)',
+            showCancelButton: true, confirmButtonText: 'ยืนยันบันทึก', cancelButtonText: 'ข้ามรายการนี้',
+            inputValidator: function (v) { if (!String(v || '').trim()) return 'กรุณาใส่เหตุผล'; }
+          });
+          if (!c.isConfirmed) continue;
+          sharedOverReason = c.value;
+          p.confirmOver = true; p.overReason = c.value;
+          res = await call('stockSaveOrder', p);
+        }
+        if (res && res.success) saved++;
+        else if (res && res.error) fail(x.it.name + ': ' + res.error);
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i>บันทึกทั้งหมด'; }
+    }
+    if (saved > 0) {
+      STK.close(); S.board = null;
+      await toast('บันทึกสั่งซื้อสำเร็จ ' + saved + ' รายการ');
+      await loadBoard(true);
+      renderOrders();
+    }
   };
   STK.orderCopy = function () {
     var it = parseItem($('oItem').value), q = Number($('oQty').value);
