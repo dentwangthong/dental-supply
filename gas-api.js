@@ -55,7 +55,10 @@ const GAS_ADMIN_FUNCS = new Set([
   'stockGetTemplate',
   'stockCheckDocFolders',
   'stockGetDocFile',
-  'stockSaveItemSpecs'
+  'stockSaveItemSpecs',
+  'stockUploadSetQuote',
+  'stockDeleteSetQuote',
+  'stockGetQuoteImage'
 ]);
 
 let GAS_ADMIN_PIN = ''; // เก็บในหน่วยความจำเท่านั้น รีเฟรชหน้าแล้วหาย
@@ -64,12 +67,25 @@ async function gasCall(fn, args) {
   const payload = { fn: fn, args: args || [] };
   if (GAS_ADMIN_FUNCS.has(fn)) payload.pin = GAS_ADMIN_PIN;
 
-  const res = await fetch(GAS_API_URL, {
-    method: 'POST',
-    // ใช้ text/plain เพื่อเลี่ยง CORS preflight (GAS ไม่รองรับ OPTIONS)
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
+  const bodyStr = JSON.stringify(payload);
+  let res = null;
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      res = await fetch(GAS_API_URL, {
+        method: 'POST',
+        // ใช้ text/plain เพื่อเลี่ยง CORS preflight (GAS ไม่รองรับ OPTIONS)
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: bodyStr
+      });
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 2) await new Promise(function (r) { setTimeout(r, 600); });
+    }
+  }
+  if (lastErr) throw lastErr;
   if (!res.ok) throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ (' + res.status + ')');
 
   let json;

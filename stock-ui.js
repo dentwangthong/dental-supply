@@ -559,7 +559,7 @@
 
       return '<tr class="border-t hover:bg-indigo-50/30 ' + (checked ? 'bg-indigo-50/50' : '') + '">' +
         '<td class="p-2 text-center"><input type="checkbox" class="ei-chk" data-row="' + o.row + '" ' + (checked ? 'checked' : '') + ' onchange="STK.eiToggleRow(' + o.row + ', this.checked)"></td>' +
-        '<td class="p-2 text-xs whitespace-nowrap"><b>แถว ' + o.row + '</b><div class="text-gray-400">' + esc(dmy(o.received || o.ordered)) + '</div><div>' + badge(o.status) + '</div></td>' +
+        '<td class="p-2 text-xs whitespace-nowrap"><b>แถว ' + o.row + '</b><div class="text-gray-400">' + esc(fd(o.received || o.ordered)) + '</div><div>' + badge(o.status) + '</div></td>' +
         '<td class="p-2">' +
           '<div class="font-medium text-gray-900">' + esc(o.name) + '</div>' +
           '<div class="flex flex-wrap items-center gap-1.5 mt-1">' +
@@ -850,12 +850,15 @@
   }
   function useThai() { var c = $('copyTh'); return c ? c.checked : true; }
   function priceMsg(planPrice, price, qty, warn) {
-    if (!(planPrice > 0) || !(price > 0)) return '';
+    if (!(price > 0)) return '';
+    if (!(planPrice > 0)) {
+      return '<div class="mt-1 p-2 rounded-lg bg-slate-50 text-slate-600">ไม่มีราคาแผนอ้างอิง · ราคาสั่งซื้อ <b>' + nf(price) + '</b> บาท/หน่วย' + (qty > 0 ? ' (รวม <b>' + nf(price * qty) + '</b> บาท)' : '') + '</div>';
+    }
     var diff = price - planPrice, pct = Math.round(diff / planPrice * 1000) / 10;
     var cls = pct > warn ? 'bg-red-50 text-red-700' : (diff > 0 ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700');
     var word = diff > 0 ? 'สูงกว่าแผน' : (diff < 0 ? 'ต่ำกว่าแผน' : 'เท่ากับแผน');
-    return '<div class="mt-1 p-2 rounded-lg ' + cls + '">ราคาแผน ' + nf(planPrice) + ' → ราคาที่กรอก ' + nf(price) + ' · <b>' + word + (diff ? ' ' + nf(Math.abs(diff)) + ' (' + (diff > 0 ? '+' : '-') + Math.abs(pct) + '%)' : '') + '</b>' +
-      (qty > 0 && diff ? ' · รวม ' + (diff > 0 ? 'เกิน ' : 'ประหยัด ') + nf(Math.abs(diff * qty)) + ' บาท' : '') + '</div>';
+    return '<div class="mt-1 p-2 rounded-lg ' + cls + '">ราคาแผน ' + nf(planPrice) + ' → ราคาที่สั่งซื้อ <b>' + nf(price) + '</b> · <b>' + word + (diff ? ' ' + nf(Math.abs(diff)) + ' (' + (diff > 0 ? '+' : '-') + Math.abs(pct) + '%)' : '') + '</b>' +
+      (qty > 0 ? ' · รวมสั่ง <b>' + nf(price * qty) + '</b> บาท' + (diff ? ' (' + (diff > 0 ? 'เกินแผน ' : 'ประหยัด ') + nf(Math.abs(diff * qty)) + ' บาท)' : '') : '') + '</div>';
   }
   function diffCell(o, warn) {
     if (o.diff === null) return '<span class="text-gray-300">-</span>';
@@ -1094,14 +1097,24 @@
       var o = S.orders.orders.filter(function (x) { return x.row === row; })[0];
       var it = null;
       if (o) S.board.items.forEach(function (x) { if (x.p151 === o.p151 && o.p151) it = x; });
+      if (o && !it) S.board.items.forEach(function (x) { if (!it && o.name && x.name === o.name) it = x; });
       var stOpts = S.orders.statuses.map(function (s) { return '<option' + ((o ? o.status : 'สั่งสินค้าแล้ว') === s ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
+      var planPriceVal = (it && it.planPrice > 0) ? it.planPrice : (o && o.planPrice > 0 ? o.planPrice : 0);
+      var unitLabel = (o && o.unit) || (it && it.unit) || 'หน่วย';
       modal('แก้ไขรายการสั่งซื้อ (แถว ' + row + ')',
         '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
         '<div class="md:col-span-2"><label class="text-xs text-gray-500">วัสดุ</label><input id="oItem" list="stkItems" value="' + esc(it ? itemLabel(it) : '') + '" onchange="STK.orderCheck(' + row + ',true)" class="' + INPUT + '"></div>' +
         '<div><label class="text-xs text-gray-500">บริษัท</label><input id="oCompany" list="stkComps" value="' + esc(o ? o.company : '') + '" class="' + INPUT + '"></div>' +
         '<div><label class="text-xs text-gray-500">สถานะ</label><select id="oStatus" onchange="STK.orderCheck(' + row + ')" class="' + INPUT + '">' + stOpts + '</select></div>' +
-        '<div><label class="text-xs text-gray-500">จำนวนสั่ง</label><input id="oQty" type="number" min="0" step="any" value="' + esc(o ? o.qty : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + '"></div>' +
-        '<div><label class="text-xs text-gray-500">ราคา/หน่วย (บาท) — ใส่ราคารวม VAT ให้เทียบกับแผนได้</label><input id="oPrice" type="number" min="0" step="any" value="' + esc(o ? o.price : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + '"></div>' +
+        '<div><label class="text-xs text-gray-500">จำนวนสั่ง (' + esc(unitLabel) + ')</label><input id="oQty" type="number" min="0" step="any" value="' + esc(o ? o.qty : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + '"></div>' +
+        '<div id="oPlanBox" class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex flex-col justify-center">' +
+          '<div class="text-xs text-gray-500">ราคาแผน/หน่วย (ใช้อ้างอิงเทียบราคา)</div>' +
+          '<div class="mt-0.5 flex items-center justify-between gap-2">' +
+            '<span id="oPlanVal" class="font-semibold text-slate-700">' + (planPriceVal > 0 ? nf(planPriceVal) + ' บาท/' + esc(unitLabel) : 'ไม่มีในแผน') + '</span>' +
+            '<button type="button" id="oUsePlanBtn" onclick="STK.usePlanPrice(' + row + ')" class="px-2 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 text-xs ' + (planPriceVal > 0 ? '' : 'hidden') + '">ใช้ราคาแผน</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="md:col-span-2"><label class="text-xs font-medium text-blue-700">ราคาที่สั่งซื้อ/หน่วย (บาท รวม VAT) — กรอกราคาที่สั่งซื้อเทียบกับราคาแผน</label><input id="oPrice" type="number" min="0" step="any" placeholder="กรอกราคาที่สั่งซื้อจริง (บาท/หน่วย)" value="' + esc(o && o.price > 0 ? o.price : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + ' border-blue-300 font-medium"></div>' +
         '<div><label class="text-xs text-gray-500">วันที่แจ้ง</label><input id="oNotified" type="date" value="' + esc(o ? o.notified : today()) + '" class="' + INPUT + '"></div>' +
         '<div><label class="text-xs text-gray-500">วันที่สั่ง</label><input id="oOrdered" type="date" value="' + esc(o ? o.ordered : today()) + '" class="' + INPUT + '"></div>' +
         '<div class="md:col-span-2"><label class="text-xs text-gray-500">หมายเหตุ</label><input id="oNote" value="' + esc(o ? o.note : '') + '" class="' + INPUT + '"></div>' +
@@ -1109,14 +1122,14 @@
         '<div class="mt-4 flex flex-wrap gap-2"><button type="button" id="oBtn" onclick="STK.orderSave(' + row + ')" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึก</button>' +
         '<button type="button" onclick="STK.orderCopy()" class="' + BTN + 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200"><i class="fa-regular fa-copy mr-1"></i>คัดลอกชื่อ+จำนวน</button>' +
         '<button type="button" onclick="STK.close()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200">ยกเลิก</button></div>');
-      if (it) STK.orderCheck(row);
+      STK.orderCheck(row);
       return;
     }
 
     batchOrderRows = (preItems && preItems.length) ? preItems.map(function (it) {
       var target = it.min > 0 ? (it.min * 2) : 1;
       var suggest = Math.max(1, Math.ceil(target - (it.usable || 0)));
-      return { itemText: itemLabel(it), company: '', qty: suggest, price: it.planPrice || '', note: '' };
+      return { itemText: itemLabel(it), company: '', qty: suggest, price: '', note: '' };
     }) : [{ itemText: '', company: '', qty: '', price: '', note: '' }];
 
     var stOptsNew = S.orders.statuses.map(function (s) { return '<option' + (s === 'สั่งสินค้าแล้ว' ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('');
@@ -1139,9 +1152,9 @@
                 '<th class="' + TH + ' min-w-[220px]">วัสดุ (พิมพ์ค้นหา)</th>' +
                 '<th class="' + TH + ' min-w-[150px]">บริษัท (กรอกแยกได้)</th>' +
                 '<th class="' + TH + ' text-right w-24">จำนวนสั่ง</th>' +
-                '<th class="' + TH + ' text-right w-24">ราคา/หน่วย</th>' +
+                '<th class="' + TH + ' text-right w-28">ราคาสั่งซื้อ/หน่วย</th>' +
                 '<th class="' + TH + ' text-right w-24">รวมเงิน</th>' +
-                '<th class="' + TH + ' min-w-[175px]">เทียบแผน &amp; ราคาแผน</th>' +
+                '<th class="' + TH + ' min-w-[190px]">เทียบแผน &amp; ราคาแผน</th>' +
                 '<th class="' + TH + ' min-w-[120px]">หมายเหตุ</th>' +
                 '<th class="' + TH + ' w-8"></th>' +
               '</tr>' +
@@ -1205,27 +1218,50 @@
   };
   STK.onPickBatchItem = function (i) {
     syncBatchFromDom();
-    var it = parseItem(batchOrderRows[i].itemText);
-    if (it && !batchOrderRows[i].price && it.planPrice) {
-      batchOrderRows[i].price = it.planPrice;
-    }
+    STK.renderBatchOrderRows();
+  };
+  STK.useBatchPlanPrice = function (i) {
+    syncBatchFromDom();
+    var r = batchOrderRows[i];
+    if (!r) return;
+    var it = parseItem(r.itemText);
+    if (!it || !(it.planPrice > 0)) return;
+    r.price = it.planPrice;
     STK.renderBatchOrderRows();
   };
   STK.recalcBatchOrderRows = function () {
     syncBatchFromDom();
     STK.renderBatchOrderRows();
   };
-  function batchCmpHtml(it, q, p) {
+  function batchCmpHtml(it, q, p, i) {
     if (!it) return '<span class="text-xs text-gray-400">เลือกวัสดุเพื่อเทียบแผน</span>';
-    if (!it.p151 || it.planQty === null) return '<span class="text-xs text-gray-400">ไม่มีในแผน</span>';
-    var after = (it.ordered || 0) + q;
-    var overQ = after > it.planQty;
-    var pct = (it.planPrice > 0 && p > 0) ? Math.round((p - it.planPrice) / it.planPrice * 1000) / 10 : null;
     var warn = S.orders ? S.orders.warnPct : 5;
-    return '<div class="text-xs space-y-0.5">' +
-      '<div class="' + (overQ ? 'text-red-600 font-medium' : 'text-green-700') + '">แผน ' + nf(it.planQty) + ' · สั่งแล้ว ' + nf(it.ordered) + ' → ' + nf(after) + (overQ ? ' (เกินแผน)' : '') + '</div>' +
-      (it.planPrice > 0 ? '<div class="text-gray-500">ราคาแผน ' + nf(it.planPrice) + (pct !== null ? (pct > warn ? ' <b class="text-red-600">(+' + pct + '%)</b>' : (pct < 0 ? ' <span class="text-green-600">(' + pct + '%)</span>' : ' (เท่าแผน)')) : '') + '</div>' : '') +
-    '</div>';
+    var qtyPart = '';
+    if (!it.p151 || it.planQty === null) {
+      qtyPart = '<div class="text-gray-400">ไม่มีจำนวนในแผน</div>';
+    } else {
+      var after = Math.round(((it.ordered || 0) + q) * 10000) / 10000;
+      var overQ = after > it.planQty;
+      qtyPart = '<div class="' + (overQ ? 'text-red-600 font-medium' : 'text-green-700') + '">แผน ' + nf(it.planQty) + ' · สั่งแล้ว ' + nf(it.ordered) + ' → ' + nf(after) + (overQ ? ' (เกินแผน)' : '') + '</div>';
+    }
+    var pricePart = '';
+    if (it.planPrice > 0) {
+      var diffBadge = '';
+      if (p > 0) {
+        var diff = Math.round((p - it.planPrice) * 100) / 100;
+        var pct = Math.round((p - it.planPrice) / it.planPrice * 1000) / 10;
+        if (pct > warn) diffBadge = ' <b class="text-red-600">(+' + pct + '%)</b>';
+        else if (diff > 0) diffBadge = ' <span class="text-amber-600">(+' + pct + '%)</span>';
+        else if (diff < 0) diffBadge = ' <span class="text-green-600">(' + pct + '%)</span>';
+        else diffBadge = ' <span class="text-slate-600">(เท่าแผน)</span>';
+      }
+      pricePart = '<div class="text-gray-500 flex flex-wrap items-center gap-1"><span>ราคาแผน ' + nf(it.planPrice) + ' บ.</span>' +
+        '<button type="button" onclick="STK.useBatchPlanPrice(' + i + ')" class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 text-[10px]">ใช้ราคาแผน</button>' +
+        diffBadge + '</div>';
+    } else if (p > 0) {
+      pricePart = '<div class="text-gray-400">ไม่มีราคาแผน</div>';
+    }
+    return '<div class="text-xs space-y-0.5">' + qtyPart + pricePart + '</div>';
   }
   STK.renderBatchOrderRows = function () {
     var bodyEl = $('boRowsBody');
@@ -1238,9 +1274,9 @@
         '<td class="p-1.5"><input class="bo-item ' + INPUT + '" list="stkItems" value="' + esc(r.itemText) + '" onchange="STK.onPickBatchItem(' + i + ')" placeholder="พิมพ์ชื่อ/รหัสวัสดุ"></td>' +
         '<td class="p-1.5"><input class="bo-comp ' + INPUT + '" list="stkComps" value="' + esc(r.company) + '" placeholder="เลือก/พิมพ์บริษัท"></td>' +
         '<td class="p-1.5"><input class="bo-qty ' + INPUT + ' text-right font-medium" type="number" min="0" step="any" value="' + esc(r.qty) + '" oninput="STK.updateBatchTotals()"></td>' +
-        '<td class="p-1.5"><input class="bo-price ' + INPUT + ' text-right" type="number" min="0" step="any" value="' + esc(r.price) + '" oninput="STK.updateBatchTotals()"></td>' +
+        '<td class="p-1.5"><input class="bo-price ' + INPUT + ' text-right" type="number" min="0" step="any" value="' + esc(r.price) + '" placeholder="กรอกราคาซื้อ" oninput="STK.updateBatchTotals()"></td>' +
         '<td class="p-2 text-right font-medium text-gray-700 bo-sub">' + (sub > 0 ? nf(sub) : '-') + '</td>' +
-        '<td class="p-2 bo-cmp">' + batchCmpHtml(it, q, p) + '</td>' +
+        '<td class="p-2 bo-cmp">' + batchCmpHtml(it, q, p, i) + '</td>' +
         '<td class="p-1.5"><input class="bo-note ' + INPUT + ' text-xs" value="' + esc(r.note) + '" placeholder="หมายเหตุ"></td>' +
         '<td class="p-2 text-center"><button type="button" onclick="STK.removeBatchOrderRow(' + i + ')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-xmark"></i></button></td>' +
       '</tr>';
@@ -1254,7 +1290,7 @@
       var r = batchOrderRows[i], it = parseItem(r.itemText);
       var q = Number(r.qty) || 0, p = Number(r.price) || 0, sub = q * p;
       tr.querySelector('.bo-sub').textContent = sub > 0 ? nf(sub) : '-';
-      tr.querySelector('.bo-cmp').innerHTML = batchCmpHtml(it, q, p);
+      tr.querySelector('.bo-cmp').innerHTML = batchCmpHtml(it, q, p, i);
       if (it && q > 0) { totalMoney += sub; validCount++; }
     });
     if ($('boSummary')) $('boSummary').innerHTML = 'พร้อมบันทึก <b>' + validCount + '</b> รายการ · รวมเงิน <b class="text-blue-700">' + nf(totalMoney) + ' บาท</b>';
@@ -1328,29 +1364,47 @@
     if (!(q > 0)) return fail('ใส่จำนวนสั่งก่อน');
     doCopy([copyLine(it.name, q, it.unit, true)]);
   };
-  var orderTimer = null;
-  STK.orderCheck = function (row, pick) {
-    clearTimeout(orderTimer);
-    if (pick) { // เลือกวัสดุใหม่ → เติมราคาตามแผนให้ทันที (ถ้ายังไม่ได้กรอก)
-      var pi = parseItem($('oItem') && $('oItem').value);
-      if (pi && !$('oPrice').value && pi.planPrice) $('oPrice').value = pi.planPrice;
+  STK.usePlanPrice = function (row) {
+    var it = parseItem($('oItem') && $('oItem').value);
+    if (!it || !(it.planPrice > 0)) return;
+    if ($('oPrice')) $('oPrice').value = it.planPrice;
+    STK.orderCheck(row);
+  };
+  STK.orderCheck = function (row) {
+    var it = parseItem($('oItem') && $('oItem').value);
+    var pv = $('oPlanVal'), pb = $('oUsePlanBtn');
+    if (pv) pv.textContent = (it && it.planPrice > 0) ? (nf(it.planPrice) + ' บาท/' + (it.unit || 'หน่วย')) : 'ไม่มีในแผน';
+    if (pb) pb.classList.toggle('hidden', !(it && it.planPrice > 0));
+    var el = $('oCheck');
+    if (!el) return;
+    if (!it) { el.innerHTML = ''; return; }
+    var q = Number($('oQty').value) || 0, price = Number($('oPrice').value) || 0;
+    var pmsg = priceMsg(it.planPrice, price, q, S.orders.warnPct);
+    if (!it.p151 || it.planQty === null) {
+      el.innerHTML = '<div class="text-amber-600">ไม่มีรายการนี้ในแผนปี ' + esc((S.orders && S.orders.fy) || '') + '</div>' + pmsg;
+      return;
     }
-    orderTimer = setTimeout(async function () {
-      var it = parseItem($('oItem') && $('oItem').value);
-      var el = $('oCheck');
-      if (!el) return;
-      if (!it) { el.innerHTML = ''; return; }
-      var q = Number($('oQty').value) || 0, price = Number($('oPrice').value) || 0;
-      var pmsg = priceMsg(it.planPrice, price, q, S.orders.warnPct);
-      if (!it.p151) { el.innerHTML = '<span class="text-gray-500">วัสดุนี้ไม่มีรหัส P151 จึงเทียบกับแผนไม่ได้</span>'; return; }
-      var chk = null;
-      try { chk = await gasCall('stockPlanCheck', [it.p151, q, row || 0]); } catch (e) { return; }
-      if (!$('oCheck') || !chk) return;
-      if (!chk.found) { $('oCheck').innerHTML = '<span class="text-amber-600">ไม่มีรายการนี้ในแผนปี ' + esc(chk.fy) + '</span>'; return; }
-      var counted = ['สั่งสินค้าแล้ว', 'รอรับสินค้า', 'ได้รับสินค้าแล้ว', 'รอตรวจรับ', 'ตรวจรับแล้ว'].indexOf($('oStatus').value) >= 0;
-      $('oCheck').innerHTML = '<div class="p-2 rounded-lg ' + (chk.over && counted ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700') + '">แผนปี ' + esc(chk.fy) + ': ' + nf(chk.planQty) + ' ' + esc(chk.unit) + ' · สั่งสะสมแล้ว ' + nf(chk.ordered) + ' · หลังสั่งรอบนี้ ' + nf(chk.after) +
-        (counted ? (chk.over ? ' → <b>เกินแผน</b>' : ' → อยู่ในแผน') : ' (สถานะนี้ยังไม่นับเป็นยอดสั่ง)') + '</div>' + pmsg;
-    }, 350);
+    var ORDERED_ST = ['สั่งสินค้าแล้ว', 'รอรับสินค้า', 'ได้รับสินค้าแล้ว', 'รอตรวจรับ', 'ตรวจรับแล้ว'];
+    var fy = Number((S.orders && S.orders.fy) || (S.board && S.board.cfg && S.board.cfg.FY) || 2569);
+    var fyStart = (fy - 1) + '-10-01';
+    var orderedExcl = 0;
+    if (S.orders && Array.isArray(S.orders.orders)) {
+      S.orders.orders.forEach(function (x) {
+        if (row && x.row === row) return;
+        if (x.p151 !== it.p151 || ORDERED_ST.indexOf(x.status) < 0) return;
+        var ds = x.ordered || x.recorded || x.notified;
+        if (ds && ds < fyStart) return;
+        orderedExcl += Number(x.qty) || 0;
+      });
+      orderedExcl = Math.round(orderedExcl * 10000) / 10000;
+    } else {
+      orderedExcl = it.ordered || 0;
+    }
+    var after = Math.round((orderedExcl + q) * 10000) / 10000;
+    var over = after > it.planQty;
+    var counted = ORDERED_ST.indexOf($('oStatus').value) >= 0;
+    el.innerHTML = '<div class="p-2 rounded-lg ' + (over && counted ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700') + '">แผนปี ' + esc(fy) + ': ' + nf(it.planQty) + ' ' + esc(it.unit || '') + ' · สั่งสะสมแล้ว ' + nf(orderedExcl) + ' · หลังสั่งรอบนี้ ' + nf(after) +
+      (counted ? (over ? ' → <b>เกินแผน</b>' : ' → อยู่ในแผน') : ' (สถานะนี้ยังไม่นับเป็นยอดสั่ง)') + '</div>' + pmsg;
   };
   STK.orderSave = async function (row) {
     var it = parseItem($('oItem').value);

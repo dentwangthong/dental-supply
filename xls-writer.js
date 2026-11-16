@@ -489,10 +489,10 @@
           String(pname),
           String(muid),
           String(formattedPack),
-          Number(it.UseRate != null ? it.UseRate : (it.useRate != null ? it.useRate : (m ? m.rate : 0))) || 0,
-          Number(it.MinStock != null ? it.MinStock : (it.minStock != null ? it.minStock : (m ? m.min : 0))) || 0,
-          Number(it.MaxStock != null ? it.MaxStock : (it.maxStock != null ? it.maxStock : (m ? m.max : 0))) || 0,
-          Number(it.OnStock != null ? it.OnStock : (it.onStock != null ? it.onStock : (m ? m.onStock : 0))) || 0,
+          0, // UseRate (กำหนดเป็น 0 ตามต้นฉบับหน่วยบริการ)
+          0, // MinStock
+          0, // MaxStock
+          0, // OnStock
           Number(toOrder) || 0
         ]);
       });

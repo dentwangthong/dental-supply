@@ -326,13 +326,16 @@
     var u = U(), S = u.S;
     var rows = (S.orders ? S.orders.orders : []).filter(function (o) { return S.sel && S.sel[o.row]; });
     if (!rows.length) return u.fail('ติ๊กเลือกรายการสั่งซื้อที่ต้องการรวมเป็นชุดจัดซื้อก่อน');
-    var noPrice = rows.filter(function (o) { return !(o.planPrice > 0); }).length;
+    var noPrice = rows.filter(function (o) { return !(o.price > 0 || o.planPrice > 0); }).length;
     var list = rows.map(function (o) {
-      return '<tr class="border-t"><td class="p-1">' + u.esc(o.name) + '</td><td class="p-1 text-right whitespace-nowrap">' + u.nf(o.qty) + ' ' + u.esc(o.unit) + '</td><td class="p-1 text-right">' + (o.planPrice > 0 ? u.nf(o.planPrice) : '<span class="text-red-500">ไม่มีราคาแผน</span>') + '</td></tr>';
+      var prHtml = o.price > 0
+        ? u.nf(o.price)
+        : (o.planPrice > 0 ? (u.nf(o.planPrice) + ' <span class="text-[11px] text-amber-600">(ราคาแผน)</span>') : '<span class="text-red-500">ไม่มีราคาสั่งซื้อ</span>');
+      return '<tr class="border-t"><td class="p-1">' + u.esc(o.name) + '</td><td class="p-1 text-right whitespace-nowrap">' + u.nf(o.qty) + ' ' + u.esc(o.unit) + '</td><td class="p-1 text-right">' + prHtml + '</td></tr>';
     }).join('');
     u.modal('สร้างชุดจัดซื้อ (' + rows.length + ' รายการ)',
-      '<table class="w-full text-sm mb-2"><thead class="bg-gray-100"><tr><th class="' + u.TH + '">รายการ</th><th class="' + u.TH + '">จำนวน</th><th class="' + u.TH + '">ราคาแผน/หน่วย</th></tr></thead><tbody>' + list + '</tbody></table>' +
-      (noPrice ? '<p class="text-sm text-amber-700 mb-2">มี ' + noPrice + ' รายการที่ไม่มีราคาตามแผน ต้องกรอกราคาเองตอนทำเอกสาร</p>' : '') +
+      '<table class="w-full text-sm mb-2"><thead class="bg-gray-100"><tr><th class="' + u.TH + '">รายการ</th><th class="' + u.TH + '">จำนวน</th><th class="' + u.TH + '">ราคาสั่งซื้อ/หน่วย</th></tr></thead><tbody>' + list + '</tbody></table>' +
+      (noPrice ? '<p class="text-sm text-amber-700 mb-2">มี ' + noPrice + ' รายการที่ไม่มีราคาสั่งซื้อ ต้องกรอกราคาเองตอนทำเอกสาร</p>' : '') +
       '<input id="setNote" class="' + u.INPUT + ' mb-3" placeholder="หมายเหตุของชุด (ถ้ามี)">' +
       '<div class="flex gap-2"><button type="button" onclick="STK.createSetConfirm()" class="' + u.BTN + 'bg-indigo-500 text-white hover:bg-indigo-600">สร้างชุด</button><button type="button" onclick="STK.close()" class="' + u.BTN + 'bg-gray-100 hover:bg-gray-200">ยกเลิก</button></div>');
   };
@@ -347,14 +350,37 @@
     STK.go('docs', { open: r.id });
   };
 
+  function syncSetPrices() {
+    var u = U(), orders = (u.S.orders && u.S.orders.orders) || [];
+    if (!orders.length || !D.sets) return;
+    var byRow = {};
+    orders.forEach(function (o) { byRow[o.row] = o; });
+    D.sets.forEach(function (s) {
+      var total = 0;
+      (s.items || []).forEach(function (it) {
+        var rowNo = Number(it.orderRow) || 0;
+        var o = rowNo ? byRow[rowNo] : null;
+        if (o && (!it.p151 || o.p151 === it.p151) && Number(o.price) > 0) {
+          it.price = Number(o.price);
+        }
+        total += Math.round((Number(it.qty) || 0) * (Number(it.price) || 0) * 100) / 100;
+      });
+      s.total = Math.round(total * 100) / 100;
+    });
+  }
+
   // =====================================================
   // 5) หน้า "เอกสาร": รายการชุด + ทะเบียนคุมเอกสาร
   // =====================================================
   STK.renderDocs = async function (arg) {
     var u = U();
-    var res = await Promise.all([u.call('stockGetSets'), u.call('stockGetRegister'), u.call('stockGetStaff')]);
+    var tasks = [u.call('stockGetSets'), u.call('stockGetRegister'), u.call('stockGetStaff')];
+    if (!u.S.orders) tasks.push(u.call('stockGetOrders'));
+    var res = await Promise.all(tasks);
     if (!res[0] || !res[1] || !res[2]) return;
     D.sets = res[0]; D.reg = res[1]; D.staff = res[2].staff; D.cfg = res[2].cfg;
+    if (res[3]) u.S.orders = res[3];
+    syncSetPrices();
     if (arg && arg.open) return STK.docOpen(arg.open);
     drawDocsHome();
   };
@@ -393,7 +419,7 @@
     }).join('') || '<tr><td colspan="9" class="p-4 text-center text-gray-400">ยังไม่มีเอกสารในทะเบียน</td></tr>';
     var head = function (a) { return a.map(function (h) { return '<th class="' + u.TH + '">' + h + '</th>'; }).join(''); };
     u.body(warn + '<h3 class="text-lg font-medium mb-2"><i class="fa-solid fa-layer-group text-indigo-500 mr-2"></i>ชุดจัดซื้อ</h3><div class="overflow-x-auto mb-8"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' +
-      head(['รหัสชุด', 'สร้างเมื่อ', 'รายการ', 'มูลค่า (ราคาแผน)', 'สถานะ', 'หมายเหตุ', '']) + '</tr></thead><tbody>' + sets + '</tbody></table></div>' +
+      head(['รหัสชุด', 'สร้างเมื่อ', 'รายการ', 'มูลค่า (ราคาสั่งซื้อ)', 'สถานะ', 'หมายเหตุ', '']) + '</tr></thead><tbody>' + sets + '</tbody></table></div>' +
       '<h3 class="text-lg font-medium mb-2"><i class="fa-solid fa-book text-emerald-500 mr-2"></i>ทะเบียนคุมเอกสาร</h3><div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' +
       head(['รหัส', 'เลขที่หนังสือ', 'วันที่', 'ประเภท', 'รายการ', 'ยอดรวม (บาท)', 'ผู้เสนอแต่งตั้ง', 'สถานะ', '']) + '</tr></thead><tbody>' + regs + '</tbody></table></div>');
   }
@@ -683,7 +709,15 @@
 
   STK.docOpen = async function (setId) {
     var u = U();
-    if (!D.sets.length || !D.staff.length) { var res = await Promise.all([u.call('stockGetSets'), u.call('stockGetStaff')]); if (!res[0] || !res[1]) return; D.sets = res[0]; D.staff = res[1].staff; D.cfg = res[1].cfg; }
+    if (!D.sets.length || !D.staff.length) {
+      var tasks = [u.call('stockGetSets'), u.call('stockGetStaff')];
+      if (!u.S.orders) tasks.push(u.call('stockGetOrders'));
+      var res = await Promise.all(tasks);
+      if (!res[0] || !res[1]) return;
+      D.sets = res[0]; D.staff = res[1].staff; D.cfg = res[1].cfg;
+      if (res[2]) u.S.orders = res[2];
+    }
+    syncSetPrices();
     var set = D.sets.filter(function (s) { return s.id === setId; })[0];
     if (!set) return u.fail('ไม่พบชุดจัดซื้อ ' + setId);
     D.set = set; D.curType = DOC_TYPE;
@@ -702,8 +736,8 @@
       card('วรรคที่ ๑ · หัวบันทึกข้อความ', '<p class="text-xs text-gray-500 mb-2">เรื่อง: ' + esc(DOC_SUBJECT) + '</p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
         '<div>' + lab('เลขที่หนังสือ — พิมพ์เฉพาะเลขลำดับต่อจาก <b>' + esc(cfg.DOC_PREFIX) + '</b>') + inp('fNo', '', 'เช่น 1476') + '<div id="fNoHint" class="text-xs mt-1"></div></div>' +
         '<div>' + lab('วันที่ (หัวเอกสาร)') + inp('fDate', today, '', 'date') + '</div></div>') +
-      card('วรรคที่ ๒ · ต้นเรื่อง (รายการวัสดุ)', '<p class="text-xs text-gray-500 mb-2">ราคาต่อหน่วยดึงจากแผนประจำปี (แก้ได้ ต้องกรอกถ้าไม่มีราคาแผน) · ปีงบประมาณ ' + esc(fy) + '</p>' +
-        '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr><th class="' + u.TH + '">รายการ</th><th class="' + u.TH + '" style="width:80px">จำนวน</th><th class="' + u.TH + '" style="width:90px">หน่วย</th><th class="' + u.TH + '" style="width:110px">ราคา/หน่วย</th><th class="' + u.TH + '" style="width:110px">เป็นเงิน</th><th class="' + u.TH + '" style="width:30px"></th></tr></thead><tbody id="fItems">' + itemRows + '</tbody></table></div>' +
+      card('วรรคที่ ๒ · ต้นเรื่อง (รายการวัสดุ)', '<p class="text-xs text-gray-500 mb-2">ราคาต่อหน่วยดึงจากราคาที่สั่งซื้อจริง (แก้ได้ หากไม่มีราคาสั่งซื้อจะใช้ราคาแผน) · ปีงบประมาณ ' + esc(fy) + '</p>' +
+        '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr><th class="' + u.TH + '">รายการ</th><th class="' + u.TH + '" style="width:80px">จำนวน</th><th class="' + u.TH + '" style="width:90px">หน่วย</th><th class="' + u.TH + '" style="width:130px">ราคา/หน่วย (ที่สั่งซื้อ)</th><th class="' + u.TH + '" style="width:110px">เป็นเงิน</th><th class="' + u.TH + '" style="width:30px"></th></tr></thead><tbody id="fItems">' + itemRows + '</tbody></table></div>' +
         '<button type="button" onclick="STK.docAddRow()" class="mt-2 ' + u.BTN + 'bg-gray-100 hover:bg-gray-200 text-xs"><i class="fa-solid fa-plus mr-1"></i>เพิ่มบรรทัด</button>' +
         '<div id="fTotal" class="mt-3 p-2 rounded-lg bg-blue-50 text-sm text-blue-900"></div>' +
         '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3"><div>' + lab('แหล่งเงิน (ข้อความต่อจาก "ด้วย")') + inp('fFund', cfg.DOC_FUND) + '</div><div>' + lab('วิธีจัดซื้อ (ต่อจาก "โดยวิธี")') + inp('fMethod', cfg.DOC_METHOD) + '</div><div>' + lab('ปีงบประมาณ (พ.ศ.)') + inp('fFy', fy) + '</div></div>') +
