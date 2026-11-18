@@ -53,8 +53,8 @@
     return '<span class="px-2 py-0.5 rounded-full text-xs whitespace-nowrap ' + cls + '">' + esc(status) + '</span>';
   }
   var INPUT = 'w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200';
-  var BTN = 'px-3 py-1.5 rounded-lg text-sm transition ';
-  var TH = 'p-2 border text-left text-xs font-medium text-gray-600';
+  var BTN = 'px-3.5 py-1.5 rounded-lg text-sm transition ';
+  var TH = 'p-2.5 border text-left text-xs font-semibold text-gray-600';
 
   function parseItem(v) {
     var id = String(v || '').split(' | ')[0].trim();
@@ -68,7 +68,7 @@
     var m = document.createElement('div');
     m.id = 'stkModal';
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9500;overflow-y:auto;padding:12px';
-    m.innerHTML = '<div class="bg-white rounded-xl shadow-xl w-full ' + (wide === 'xl' ? 'max-w-5xl' : (wide ? 'max-w-4xl' : 'max-w-lg')) + ' mx-auto mt-6 mb-6 p-5">' +
+    m.innerHTML = '<div class="bg-white rounded-xl shadow-xl w-full ' + (wide === 'xl' ? 'max-w-6xl' : (wide ? 'max-w-5xl' : 'max-w-xl')) + ' mx-auto mt-6 mb-6 p-5 sm:p-6">' +
       '<div class="flex justify-between items-start mb-3"><h3 class="text-lg font-medium text-gray-700">' + title + '</h3>' +
       '<button type="button" onclick="STK.close()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none" aria-label="ปิด">&times;</button></div>' +
       '<div id="stkModalBody">' + body + '</div></div>';

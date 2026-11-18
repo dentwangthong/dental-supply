@@ -95,7 +95,7 @@
 
   <!-- Smart Sticky Header & Navigation (ซ่อนอัตโนมัติเมื่อ Scroll Down / แสดงเมื่อ Scroll Up) -->
   <header id="smartNavbar" class="sticky top-0 z-50 transition-transform duration-300 ease-in-out navbar-glass border-b border-slate-200/80 shadow-sm">
-    <div id="navInner" class="max-w-4xl mx-auto px-4 pt-3.5 pb-2.5 transition-all duration-300">
+    <div id="navInner" class="max-w-6xl mx-auto px-4 sm:px-6 pt-3.5 pb-2.5 transition-all duration-300">
       <div class="flex flex-col sm:flex-row items-center justify-between gap-2 mb-2.5">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-200">
@@ -134,7 +134,7 @@
     <i class="fa-solid fa-chevron-up text-[10px]"></i> แสดงเมนูบน
   </button>
 
-  <main id="mainContainer" class="max-w-4xl mx-auto pt-6 px-4 transition-all duration-300">
+  <main id="mainContainer" class="max-w-6xl mx-auto pt-6 px-4 sm:px-6 transition-all duration-300">
     <!-- 1. ส่งเบิกวัสดุ -->
     <div id="reqTab" class="tab-content glass-card p-6">
       <div class="flex flex-wrap justify-between items-center gap-2 mb-5 pb-3 border-b border-slate-100">
@@ -479,16 +479,16 @@
       const activeBtn = document.getElementById('btn-' + tabId);
       if (activeBtn) activeBtn.className = `nav-pill ${pillMap[colorType] || 'active-blue'}`;
 
-      // ขยายความกว้างเป็น max-w-6xl อัตโนมัติเมื่อเข้าหน้า Admin / คลังวัสดุ
+      // ขยายความกว้างเป็น max-w-[1440px] อัตโนมัติเมื่อเข้าหน้า Admin / คลังวัสดุ
       const mainEl = document.getElementById('mainContainer');
       const navInner = document.getElementById('navInner');
       if (mainEl) {
-        mainEl.classList.remove('max-w-4xl', 'max-w-6xl');
-        mainEl.classList.add(tabId === 'adminTab' ? 'max-w-6xl' : 'max-w-4xl');
+        mainEl.classList.remove('max-w-4xl', 'max-w-6xl', 'max-w-[1440px]');
+        mainEl.classList.add(tabId === 'adminTab' ? 'max-w-[1440px]' : 'max-w-6xl');
       }
       if (navInner) {
-        navInner.classList.remove('max-w-4xl', 'max-w-6xl');
-        navInner.classList.add(tabId === 'adminTab' ? 'max-w-6xl' : 'max-w-4xl');
+        navInner.classList.remove('max-w-4xl', 'max-w-6xl', 'max-w-[1440px]');
+        navInner.classList.add(tabId === 'adminTab' ? 'max-w-[1440px]' : 'max-w-6xl');
       }
     }
 
