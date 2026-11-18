@@ -190,7 +190,7 @@
       '<select id="bs" onchange="STK.filterBoard()" class="border rounded-lg px-3 py-1.5 text-sm">' + opts + '</select>' +
       '<button type="button" onclick="STK.go(\'board\',\'refresh\')" class="' + BTN + 'bg-gray-100 hover:bg-gray-200"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button></div>' +
       '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' +
-      ['รหัส', 'รายการ', 'คงเหลือ', 'หน่วย', 'min', 'สถานะ', 'หมดอายุใกล้สุด', 'สั่ง/แผน', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') +
+      ['รหัส', 'รายการ', 'คงเหลือ', 'หน่วย', 'ขนาดบรรจุ', 'min', 'สถานะ', 'หมดอายุใกล้สุด', 'สั่ง/แผน', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') +
       '</tr></thead><tbody id="bbody"></tbody></table></div><p id="bcount" class="text-xs text-gray-400 mt-2"></p>');
     drawBoardRows();
     S.openReq = undefined; // โหลดใหม่ทุกครั้ง เพราะมีใบเบิกใหม่เข้ามาได้ตลอด
@@ -216,13 +216,14 @@
         '<td class="p-2 text-right whitespace-nowrap font-medium">' + nf(it.usable) +
         (it.expQty > 0 ? '<div class="text-[11px] text-red-500 font-normal">หมดอายุแล้ว ' + nf(it.expQty) + '</div>' : '') + '</td>' +
         '<td class="p-2 text-xs text-gray-500 whitespace-nowrap">' + esc(it.unit || '-') + '</td>' +
+        '<td class="p-2 text-xs text-gray-500 whitespace-nowrap font-mono">' + esc(it.pack || '-') + '</td>' +
         '<td class="p-2 text-right">' + nf(it.min) + '</td><td class="p-2">' + badge(it.status) + '</td>' +
         '<td class="p-2 text-xs whitespace-nowrap">' + fd(it.nearest) + '</td><td class="p-2 text-xs whitespace-nowrap">' + plan + '</td>' +
         '<td class="p-2 text-right whitespace-nowrap"><button type="button" onclick="STK.detail(\'' + it.id + '\')" class="text-blue-600 text-xs underline mr-2">รายละเอียด</button>' +
         '<button type="button" onclick="STK.go(\'recv\',\'' + it.id + '\')" class="text-green-600 text-xs underline mr-2">รับ</button>' +
         '<button type="button" onclick="STK.go(\'disp\',{item:\'' + it.id + '\'})" class="text-amber-600 text-xs underline">จ่าย</button></td></tr>';
     }).join('');
-    $('bbody').innerHTML = html || '<tr><td colspan="9" class="p-4 text-center text-gray-400">ไม่พบรายการ</td></tr>';
+    $('bbody').innerHTML = html || '<tr><td colspan="10" class="p-4 text-center text-gray-400">ไม่พบรายการ</td></tr>';
     $('bcount').textContent = 'แสดง ' + rows.length + ' จาก ' + S.board.items.length + ' รายการ';
   }
   async function loadBanner() {
@@ -250,19 +251,19 @@
     var it = r.item;
     var lots = r.lots.length ? r.lots.map(function (l) {
       var exp = l.days === null ? '-' : fd(l.expiry) + ' <span class="' + (l.days < 0 ? 'text-red-600' : (l.days <= Number(S.board.cfg.EXPIRY_DAYS) ? 'text-amber-600' : 'text-gray-400')) + ' text-xs">(' + (l.days < 0 ? 'หมดอายุแล้ว' : 'อีก ' + l.days + ' วัน') + ')</span>';
-      return '<tr class="border-t"><td class="p-2 text-xs">' + esc(l.id) + '</td><td class="p-2">' + esc(l.lotNo || '-') + '</td><td class="p-2">' + esc(l.brand || '-') + '<div class="text-[11px] text-gray-400">' + esc(l.company) + '</div></td><td class="p-2 whitespace-nowrap">' + exp + '</td>' +
+      return '<tr class="border-t"><td class="p-2 text-xs">' + esc(l.id) + '</td><td class="p-2">' + esc(l.lotNo || '-') + '</td><td class="p-2 text-xs font-mono">' + esc(l.pack || it.pack || '-') + '</td><td class="p-2">' + esc(l.brand || '-') + '<div class="text-[11px] text-gray-400">' + esc(l.company) + '</div></td><td class="p-2 whitespace-nowrap">' + exp + '</td>' +
         '<td class="p-2 text-right font-medium">' + nf(l.bal) + '</td><td class="p-2 text-right">' + nf(l.price) + '</td>' +
         '<td class="p-2"><button type="button" onclick="STK.adjust(\'' + it.id + '\',\'' + l.id + '\')" class="text-xs text-blue-600 underline">ปรับยอด</button></td></tr>';
-    }).join('') : '<tr><td colspan="7" class="p-3 text-center text-gray-400">ยังไม่มีล็อต</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="p-3 text-center text-gray-400">ยังไม่มีล็อต</td></tr>';
     var hist = r.history.length ? r.history.map(function (h) {
       return '<tr class="border-t"><td class="p-2 text-xs whitespace-nowrap">' + esc(h.time) + '</td><td class="p-2">' + esc(h.type) + '</td><td class="p-2 text-xs">' + esc(h.lotId) + '</td><td class="p-2 text-right ' + (h.qty < 0 ? 'text-red-600' : 'text-green-600') + '">' + (h.qty > 0 ? '+' : '') + nf(h.qty) + '</td><td class="p-2 text-xs">' + esc(h.unit) + '</td><td class="p-2 text-xs">' + esc(h.note) + '</td></tr>';
     }).join('') : '<tr><td colspan="6" class="p-3 text-center text-gray-400">ยังไม่มีประวัติ</td></tr>';
     var planTxt = r.plan ? 'แผนปี ' + esc(S.board.cfg.FY) + ': ซื้อ ' + nf(r.plan.qty) + ' ' + esc(r.plan.unit) + ' · สั่งแล้ว ' + nf(r.ordered) : 'ไม่มีในแผน/ไม่มีรหัส P151';
     modal(esc(it.name),
-      '<div class="text-sm text-gray-500 mb-3">' + esc(it.id) + ' · CPN ' + esc(it.cpn || '-') + ' · ' + esc(it.p151 || 'ไม่มี P151') + ' · หน่วย ' + esc(it.unit || '-') + ' · min ' + nf(it.min) + ' · rate/เดือน ' + nf(it.rate) + '<br>' + planTxt + '</div>' +
+      '<div class="text-sm text-gray-500 mb-3">' + esc(it.id) + ' · CPN ' + esc(it.cpn || '-') + ' · ' + esc(it.p151 || 'ไม่มี P151') + ' · หน่วย ' + esc(it.unit || '-') + ' · ขนาดบรรจุ ' + esc(it.pack || '-') + ' · min ' + nf(it.min) + ' · rate/เดือน ' + nf(it.rate) + '<br>' + planTxt + '</div>' +
       '<div class="flex gap-2 mb-3"><button type="button" onclick="STK.close();STK.go(\'recv\',\'' + it.id + '\')" class="' + BTN + 'bg-green-500 text-white hover:bg-green-600">รับเข้า</button>' +
       '<button type="button" onclick="STK.close();STK.go(\'disp\',{item:\'' + it.id + '\'})" class="' + BTN + 'bg-amber-500 text-white hover:bg-amber-600">จ่ายออก</button></div>' +
-      '<h4 class="font-medium text-sm mb-1">ล็อตคงเหลือ (จ่ายตามหมดอายุก่อน)</h4><div class="overflow-x-auto mb-4"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' + ['ล็อต', 'เลขล็อต', 'ยี่ห้อ/บริษัท', 'หมดอายุ', 'เหลือ', 'ราคา', ''].map(function (x) { return '<th class="' + TH + '">' + x + '</th>'; }).join('') + '</tr></thead><tbody>' + lots + '</tbody></table></div>' +
+      '<h4 class="font-medium text-sm mb-1">ล็อตคงเหลือ (จ่ายตามหมดอายุก่อน)</h4><div class="overflow-x-auto mb-4"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' + ['ล็อต', 'เลขล็อต', 'ขนาดบรรจุ', 'ยี่ห้อ/บริษัท', 'หมดอายุ', 'เหลือ', 'ราคา', ''].map(function (x) { return '<th class="' + TH + '">' + x + '</th>'; }).join('') + '</tr></thead><tbody>' + lots + '</tbody></table></div>' +
       '<h4 class="font-medium text-sm mb-1">ประวัติล่าสุด</h4><div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' + ['เวลา', 'ประเภท', 'ล็อต', 'จำนวน', 'หน่วยบริการ', 'หมายเหตุ'].map(function (x) { return '<th class="' + TH + '">' + x + '</th>'; }).join('') + '</tr></thead><tbody>' + hist + '</tbody></table></div>', true);
   };
 
@@ -288,18 +289,17 @@
     STK.detail(itemId);
   };
 
-  // ---------- รับเข้า ----------
-  S.ei = { sel: {}, edits: {}, exported: {} };
+  // ---------- รับเข้า (3 ส่วน: รอรับเข้าคลัง → กรอกรายละเอียด/แยกล็อต → คิวยืนยันเข้าคลัง & สร้าง E-Import) ----------
+  S.ei = { queue: [] };
   try {
-    S.ei.edits = JSON.parse(localStorage.getItem('stk_ei_edits') || '{}') || {};
-    S.ei.exported = JSON.parse(localStorage.getItem('stk_ei_exported') || '{}') || {};
+    var savedQ = JSON.parse(localStorage.getItem('stk_ei_queue') || '[]');
+    if (Array.isArray(savedQ)) S.ei.queue = savedQ;
   } catch (e) {}
+  var recvMode = 'single';
+  var recvLots = [{ lotNo: '', expiry: '', qty: '' }];
 
   function saveEiCache() {
-    try {
-      localStorage.setItem('stk_ei_edits', JSON.stringify(S.ei.edits || {}));
-      localStorage.setItem('stk_ei_exported', JSON.stringify(S.ei.exported || {}));
-    } catch (e) {}
+    try { localStorage.setItem('stk_ei_queue', JSON.stringify(S.ei.queue || [])); } catch (e) {}
   }
 
   function defaultInstockId() {
@@ -335,318 +335,598 @@
     return null;
   }
 
+  function queuedQtyForOrder(orderRow) {
+    if (!orderRow) return 0;
+    var sum = 0;
+    (S.ei.queue || []).forEach(function (q) {
+      if (Number(q.orderRow) === Number(orderRow) && !q.webReceived) sum += Number(q.qty) || 0;
+    });
+    return Math.round(sum * 10000) / 10000;
+  }
+
+  function remainingForOrder(o) {
+    if (!o) return 0;
+    var rec = Number(o.receivedQty) || 0;
+    return Math.max(0, Math.round(((Number(o.qty) || 0) - rec) * 10000) / 10000);
+  }
+
   async function renderRecv(prefill) {
-    await Promise.all([loadComps(), loadOrders()]);
+    await Promise.all([loadComps(), loadOrders(true)]);
     var pre = typeof prefill === 'object' && prefill ? prefill : { item: prefill };
     S.r.itemId = pre.item || ''; S.r.orderRow = pre.order || 0;
+    recvMode = 'single';
+    recvLots = [{ lotNo: '', expiry: '', qty: '' }];
     var it = S.byId[S.r.itemId];
     body(
       '<div class="space-y-6">' +
-      '<div class="max-w-2xl bg-white border border-gray-200 rounded-xl p-4 shadow-sm">' +
-      '<div class="flex flex-wrap items-center justify-between gap-2 mb-3">' +
-        '<h3 class="text-lg font-medium"><i class="fa-solid fa-box-open text-green-500 mr-2"></i>รับวัสดุเข้าคลัง</h3>' +
-        '<button type="button" onclick="var el=document.getElementById(\'eiSection\');if(el)el.scrollIntoView({behavior:\'smooth\'})" class="text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium"><i class="fa-solid fa-file-excel mr-1"></i>ไปส่วนสร้างไฟล์ E-Import (CPN)</button>' +
-      '</div>' +
-      '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
-      '<div class="md:col-span-2"><label class="text-xs text-gray-500">วัสดุ (พิมพ์ค้นหาแล้วเลือกจากรายการ)</label><input id="rItem" list="stkItems" value="' + esc(it ? itemLabel(it) : '') + '" onchange="STK.recvPick()" class="' + INPUT + '" placeholder="พิมพ์ชื่อหรือรหัส"><div id="rInfo" class="text-xs text-gray-500 mt-1"></div></div>' +
-      '<div><label class="text-xs text-gray-500">ประเภทรายการ</label><select id="rKind" class="' + INPUT + '"><option>รับเข้า</option><option>ยอดยกมา</option></select></div>' +
-      '<div><label class="text-xs text-gray-500">รับจากรายการสั่งซื้อ (ถ้ามี)</label><select id="rOrder" onchange="STK.recvOrder()" class="' + INPUT + '"><option value="">ไม่ผูกรายการสั่งซื้อ</option></select></div>' +
-      '<div><label class="text-xs text-gray-500">บริษัท</label><input id="rCompany" list="stkComps" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">ยี่ห้อ</label><input id="rBrand" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">เลขล็อต</label><input id="rLot" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">วันหมดอายุ (เว้นว่างได้ถ้าไม่มี)</label><input id="rExp" type="date" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">จำนวนที่รับ</label><input id="rQty" type="number" min="0" step="any" oninput="STK.recvPriceHint()" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">ราคา/หน่วย (บาท) — ราคารวม VAT</label><input id="rPrice" type="number" min="0" step="any" oninput="STK.recvPriceHint()" class="' + INPUT + '"><div id="rPriceHint" class="text-xs"></div></div>' +
-      '<div><label class="text-xs text-gray-500">วันที่รับ</label><input id="rDate" type="date" value="' + today() + '" class="' + INPUT + '"></div>' +
-      '<div><label class="text-xs text-gray-500">หมายเหตุ</label><input id="rNote" class="' + INPUT + '"></div></div>' +
-      '<button type="button" id="rBtn" onclick="STK.recvSave()" class="mt-4 ' + BTN + 'bg-green-500 text-white hover:bg-green-600"><i class="fa-solid fa-check mr-1"></i>บันทึกรับเข้า</button>' +
-      '<div id="rDone" class="mt-3 text-sm"></div></div>' +
-
-      // ---------- ส่วนสร้างไฟล์ E-Import (5 Sheets) สำหรับโปรแกรม CPN / Poolsoft ----------
-      '<div id="eiSection" class="bg-white border border-indigo-200 rounded-xl p-4 shadow-sm">' +
-        '<div class="flex flex-wrap items-center justify-between gap-2 mb-2">' +
-          '<div>' +
-            '<h3 class="text-base font-semibold text-indigo-900"><i class="fa-solid fa-file-import text-indigo-600 mr-2"></i>สร้างไฟล์รับสินค้า E-Import เข้า CPN / Poolsoft (5 Sheets)</h3>' +
-            '<p class="text-xs text-gray-500">เลือกรายการสั่งซื้อวัสดุที่ตรวจรับแล้ว (สามารถแยกสร้างทีละชุด/ทีละบริษัทได้ ระบบจะแนบ Master Data อีก 4 ชีตให้อัตโนมัติ)</p>' +
+        // ---------- ส่วนที่ 1: รายการที่ตรวจรับแล้ว (รอรับเข้าคลัง) ----------
+        '<div id="recvPart1" class="bg-white border border-emerald-200 rounded-xl p-4 shadow-sm">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2 mb-3">' +
+            '<div>' +
+              '<h3 class="text-base font-semibold text-emerald-900"><i class="fa-solid fa-clipboard-check text-emerald-600 mr-2"></i>ส่วนที่ 1 · รายการที่ตรวจรับแล้ว (รอรับเข้าคลัง)</h3>' +
+              '<p class="text-xs text-gray-500">แสดงรายการสั่งซื้อที่สถานะ "ตรวจรับแล้ว" และยังรับเข้าคลังไม่ครบ (เมื่อยืนยันรับเข้าครบตามจำนวนแล้ว รายการจะซ่อนอัตโนมัติ)</p>' +
+            '</div>' +
+            '<div class="flex flex-wrap gap-2">' +
+              '<input id="p1Q" oninput="STK.drawRecvPending()" placeholder="ค้นหารายการ / บริษัท / P151" class="' + INPUT + ' text-xs md:w-52">' +
+              '<select id="p1Comp" onchange="STK.drawRecvPending()" class="' + INPUT + ' text-xs md:w-44"><option value="">ทุกบริษัท</option></select>' +
+            '</div>' +
           '</div>' +
-          '<button type="button" id="eiExportBtn" onclick="STK.exportEImport()" class="' + BTN + 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"><i class="fa-solid fa-download mr-1"></i>ดาวน์โหลดไฟล์ E-Import (.xls 5 Sheets) (<span id="eiSelCount">0</span>)</button>' +
-        '</div>' +
-
-        '<div class="grid grid-cols-1 md:grid-cols-5 gap-2 bg-indigo-50/60 border border-indigo-100 rounded-lg p-3 mb-3">' +
-          '<div><label class="text-xs font-medium text-indigo-900">เลขที่ใบรับอ้างอิง (InstockID)</label>' +
-            '<div class="flex gap-1"><input id="eiInstockId" value="' + esc(defaultInstockId()) + '" oninput="try{localStorage.setItem(\'stk_ei_last_id\',this.value.trim())}catch(e){}" class="' + INPUT + ' font-mono text-xs" placeholder="เช่น SO-6911-00001">' +
-            '<button type="button" onclick="$(\'eiInstockId\').value=STK.bumpInstockId($(\'eiInstockId\').value)" title="เลื่อนเลขลำดับถัดไป (+1)" class="px-2.5 rounded-lg border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-100 text-xs font-semibold">+1</button></div>' +
-          '</div>' +
-          '<div><label class="text-xs font-medium text-indigo-900">ชื่อหน่วยงาน/คำอธิบายไฟล์</label>' +
-            '<input id="eiLabel" value="ทันตกรรมวังทอง" class="' + INPUT + ' text-xs" placeholder="เช่น ทันตกรรมวังทอง">' +
-          '</div>' +
-          '<div><label class="text-xs font-medium text-indigo-900">กรองสถานะใบสั่งซื้อ</label>' +
-            '<select id="eiStatus" onchange="STK.drawEImport()" class="' + INPUT + ' text-xs">' +
-              '<option value="ตรวจรับแล้ว" selected>เฉพาะ "ตรวจรับแล้ว"</option>' +
-              '<option value="recv_all">ได้รับสินค้าแล้ว / รอตรวจรับ / ตรวจรับแล้ว</option>' +
-              '<option value="all">ทุกรายการสั่งซื้อ</option>' +
-            '</select>' +
-          '</div>' +
-          '<div><label class="text-xs font-medium text-indigo-900">กรองตามบริษัท (เพื่อแยกไฟล์)</label>' +
-            '<select id="eiComp" onchange="STK.drawEImport()" class="' + INPUT + ' text-xs"><option value="">ทุกบริษัท</option></select>' +
-          '</div>' +
-          '<div><label class="text-xs font-medium text-indigo-900">ค้นหารายการ / รหัส</label>' +
-            '<input id="eiQ" oninput="STK.drawEImport()" class="' + INPUT + ' text-xs" placeholder="พิมพ์ชื่อวัสดุ, CPN, P151">' +
+          '<div class="overflow-x-auto border rounded-lg">' +
+            '<table class="w-full text-sm border-collapse">' +
+              '<thead class="bg-emerald-50/70 text-xs text-emerald-900">' +
+                '<tr>' +
+                  '<th class="p-2 border-b text-left">แถว / วันที่</th>' +
+                  '<th class="p-2 border-b text-left">รายการวัสดุ &amp; รหัส</th>' +
+                  '<th class="p-2 border-b text-left">บริษัท</th>' +
+                  '<th class="p-2 border-b text-right">จำนวนสั่ง</th>' +
+                  '<th class="p-2 border-b text-right">รับเข้าแล้ว</th>' +
+                  '<th class="p-2 border-b text-right">รอรับเข้าคลัง</th>' +
+                  '<th class="p-2 border-b text-right">ราคาที่ซื้อ/หน่วย</th>' +
+                  '<th class="p-2 border-b text-center">เลือกรับเข้า</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody id="p1Body"></tbody>' +
+            '</table>' +
           '</div>' +
         '</div>' +
 
-        '<div id="eiSummary" class="text-xs text-gray-600 mb-2"></div>' +
-        '<div class="overflow-x-auto border rounded-lg">' +
-          '<table class="w-full text-sm border-collapse">' +
-            '<thead class="bg-gray-100 text-xs text-gray-700">' +
-              '<tr>' +
-                '<th class="p-2 border-b text-center" style="width:36px"><input type="checkbox" id="eiChkAll" onchange="STK.eiToggleAll(this.checked)"></th>' +
-                '<th class="p-2 border-b text-left">แถว/วันที่</th>' +
-                '<th class="p-2 border-b text-left">รายการวัสดุ & รหัส CPN</th>' +
-                '<th class="p-2 border-b text-left">บริษัท</th>' +
-                '<th class="p-2 border-b text-right" style="width:95px">จำนวนรับ</th>' +
-                '<th class="p-2 border-b text-right" style="width:105px">ราคา/หน่วย</th>' +
-                '<th class="p-2 border-b text-left" style="width:125px">เลขล็อต (LotNumber)</th>' +
-                '<th class="p-2 border-b text-left" style="width:140px">วันหมดอายุ (ExpDate)</th>' +
-                '<th class="p-2 border-b text-left">สถานะไฟล์</th>' +
-              '</tr>' +
-            '</thead>' +
-            '<tbody id="eiBody"></tbody>' +
-          '</table>' +
+        // ---------- ส่วนที่ 2: กรอกรายละเอียดการรับวัสดุเข้าคลัง ----------
+        '<div id="recvPart2" class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2 mb-3">' +
+            '<div>' +
+              '<h3 class="text-base font-semibold text-gray-800"><i class="fa-solid fa-box-open text-green-600 mr-2"></i>ส่วนที่ 2 · กรอกรายละเอียดการรับวัสดุเข้าคลัง</h3>' +
+              '<p class="text-xs text-gray-500">เลือกจากส่วนที่ 1 หรือคีย์รับเข้าเองได้ (รองรับรับล็อตเดียวและแบ่งรับหลายล็อต) เมื่อกดบันทึกจะส่งไปพักไว้ที่ส่วนที่ 3</p>' +
+            '</div>' +
+            '<div class="flex items-center gap-1 bg-gray-100 p-1 rounded-lg text-xs">' +
+              '<button type="button" id="rModeSingle" onclick="STK.setRecvMode(\'single\')" class="px-2.5 py-1 rounded-md font-medium transition bg-white text-green-700 shadow-sm">รับล็อตเดียว</button>' +
+              '<button type="button" id="rModeSplit" onclick="STK.setRecvMode(\'split\')" class="px-2.5 py-1 rounded-md font-medium transition text-gray-600 hover:text-gray-900">แบ่งรับหลายล็อต</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">' +
+            '<div class="md:col-span-2"><label class="text-xs text-gray-500">วัสดุ (พิมพ์ค้นหาแล้วเลือกจากรายการ)</label><input id="rItem" list="stkItems" value="' + esc(it ? itemLabel(it) : '') + '" onchange="STK.recvPick()" class="' + INPUT + '" placeholder="พิมพ์ชื่อหรือรหัส"><div id="rInfo" class="text-xs text-gray-500 mt-1"></div></div>' +
+            '<div><label class="text-xs text-gray-500">ประเภทรายการ</label><select id="rKind" class="' + INPUT + '"><option>รับเข้า</option><option>ยอดยกมา</option></select></div>' +
+            '<div><label class="text-xs text-gray-500">ผูกใบสั่งซื้อ (ถ้ามี)</label><select id="rOrder" onchange="STK.recvOrder()" class="' + INPUT + '"><option value="">ไม่ผูกรายการสั่งซื้อ (คีย์รับเข้าเอง)</option></select></div>' +
+            '<div><label class="text-xs text-gray-500">บริษัท</label><input id="rCompany" list="stkComps" class="' + INPUT + '"></div>' +
+            '<div><label class="text-xs text-gray-500">ยี่ห้อ</label><input id="rBrand" class="' + INPUT + '"></div>' +
+            '<div><label class="text-xs text-gray-500">ขนาดบรรจุ (เช่น 1x1, 1x6)</label><input id="rPack" placeholder="เช่น 1x1, 1x6" class="' + INPUT + ' font-mono"></div>' +
+            '<div><label class="text-xs text-gray-500">ราคาที่ซื้อ/หน่วย (บาท รวม VAT)</label><input id="rPrice" type="number" min="0" step="any" placeholder="กรอกราคาที่ซื้อ" oninput="STK.recvPriceHint()" class="' + INPUT + '"><div id="rPriceHint" class="text-xs"></div></div>' +
+            '<div><label class="text-xs text-gray-500">วันที่รับ</label><input id="rDate" type="date" value="' + today() + '" class="' + INPUT + '"></div>' +
+            '<div><label class="text-xs text-gray-500">หมายเหตุ</label><input id="rNote" class="' + INPUT + '"></div>' +
+          '</div>' +
+          '<div class="border rounded-xl p-3 bg-slate-50/70 mb-3">' +
+            '<div class="flex flex-wrap items-center justify-between gap-2 mb-2">' +
+              '<span class="text-xs font-semibold text-slate-700"><i class="fa-solid fa-layer-group mr-1"></i>รายละเอียดล็อต / วันหมดอายุ / จำนวนที่รับ</span>' +
+              '<div class="flex items-center gap-2">' +
+                '<span id="rLotsSum" class="text-xs text-slate-600"></span>' +
+                '<button type="button" id="rAddLotBtn" onclick="STK.addRecvLot()" class="hidden px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-medium"><i class="fa-solid fa-plus mr-1"></i>เพิ่มล็อตย่อย</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse bg-white rounded-lg overflow-hidden border"><thead class="bg-gray-100 text-xs text-gray-600"><tr><th class="p-2 text-center w-10">#</th><th class="p-2 text-left">เลขล็อต (LotNumber)</th><th class="p-2 text-left w-44">วันหมดอายุ (เว้นว่างได้)</th><th class="p-2 text-right w-36">จำนวนที่รับ</th><th class="p-2 w-10"></th></tr></thead><tbody id="rLotsBody"></tbody></table></div>' +
+          '</div>' +
+          '<div class="flex flex-wrap items-center gap-2">' +
+            '<button type="button" id="rQueueBtn" onclick="STK.queueReceive()" class="' + BTN + 'bg-green-600 text-white hover:bg-green-700 font-medium shadow-sm"><i class="fa-solid fa-arrow-down mr-1"></i>ส่งเข้าคิวส่วนที่ 3 (รอยืนยันรับเข้า &amp; สร้าง E-Import)</button>' +
+            '<button type="button" onclick="STK.clearRecvForm()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200 text-gray-700">ล้างฟอร์ม</button>' +
+          '</div>' +
         '</div>' +
-      '</div>' +
+
+        // ---------- ส่วนที่ 3: คิวรอยืนยันรับเข้าคลัง & สร้างไฟล์ E-Import (5 Sheets) ----------
+        '<div id="recvPart3" class="bg-white border border-indigo-200 rounded-xl p-4 shadow-sm">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2 mb-3">' +
+            '<div>' +
+              '<h3 class="text-base font-semibold text-indigo-900"><i class="fa-solid fa-file-import text-indigo-600 mr-2"></i>ส่วนที่ 3 · ยืนยันรับสินค้าเข้าคลัง (Web App) &amp; สร้างไฟล์ E-Import เข้า CPN (5 Sheets)</h3>' +
+              '<p class="text-xs text-gray-500">ตรวจสอบรายการในคิว (ทั้งจากใบสั่งซื้อและที่คีย์รับเข้าเอง) แล้วกดยืนยันรับเข้าคลัง Web App และ/หรือสร้างไฟล์ .xls เข้า CPN</p>' +
+            '</div>' +
+            '<div class="flex flex-wrap gap-2">' +
+              '<button type="button" id="eiWebBtn" onclick="STK.confirmQueueReceive(false)" class="' + BTN + 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm font-medium"><i class="fa-solid fa-check-double mr-1"></i>ยืนยันรับเข้าคลัง (<span id="eiWebCount">0</span>)</button>' +
+              '<button type="button" id="eiExportBtn" onclick="STK.exportEImport()" class="' + BTN + 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm font-medium"><i class="fa-solid fa-file-excel mr-1"></i>ดาวน์โหลด E-Import (.xls) (<span id="eiSelCount">0</span>)</button>' +
+              '<button type="button" id="eiBothBtn" onclick="STK.confirmQueueReceive(true)" class="' + BTN + 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm font-medium"><i class="fa-solid fa-bolt mr-1"></i>ยืนยันรับเข้า + โหลด E-Import พร้อมกัน</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="grid grid-cols-1 md:grid-cols-4 gap-2 bg-indigo-50/60 border border-indigo-100 rounded-lg p-3 mb-3">' +
+            '<div><label class="text-xs font-medium text-indigo-900">เลขที่ใบรับอ้างอิง (InstockID)</label>' +
+              '<div class="flex gap-1"><input id="eiInstockId" value="' + esc(defaultInstockId()) + '" oninput="try{localStorage.setItem(\'stk_ei_last_id\',this.value.trim())}catch(e){}" class="' + INPUT + ' font-mono text-xs" placeholder="เช่น SO-6911-00001">' +
+              '<button type="button" onclick="$(\'eiInstockId\').value=STK.bumpInstockId($(\'eiInstockId\').value)" title="เลื่อนเลขลำดับถัดไป (+1)" class="px-2.5 rounded-lg border border-indigo-200 bg-white text-indigo-700 hover:bg-indigo-100 text-xs font-semibold">+1</button></div>' +
+            '</div>' +
+            '<div><label class="text-xs font-medium text-indigo-900">ชื่อหน่วยงาน/คำอธิบายไฟล์</label>' +
+              '<input id="eiLabel" value="ทันตกรรมวังทอง" class="' + INPUT + ' text-xs" placeholder="เช่น ทันตกรรมวังทอง">' +
+            '</div>' +
+            '<div><label class="text-xs font-medium text-indigo-900">กรองรายการในคิว</label>' +
+              '<select id="eiFilter" onchange="STK.drawEImport()" class="' + INPUT + ' text-xs">' +
+                '<option value="all" selected>ทั้งหมดในคิว</option>' +
+                '<option value="pending_web">รอยืนยันรับเข้า Web App</option>' +
+                '<option value="pending_xls">รอสร้างไฟล์ E-Import</option>' +
+              '</select>' +
+            '</div>' +
+            '<div class="flex items-end justify-end">' +
+              '<button type="button" onclick="STK.clearDoneQueue()" class="' + BTN + 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 text-xs w-full"><i class="fa-solid fa-broom mr-1"></i>ล้างรายการที่รับเข้าและส่งออกแล้ว</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div id="eiSummary" class="text-xs text-gray-600 mb-2"></div>' +
+          '<div class="overflow-x-auto border rounded-lg">' +
+            '<table class="w-full text-sm border-collapse">' +
+              '<thead class="bg-gray-100 text-xs text-gray-700">' +
+                '<tr>' +
+                  '<th class="p-2 border-b text-center" style="width:36px"><input type="checkbox" id="eiChkAll" onchange="STK.eiToggleAll(this.checked)"></th>' +
+                  '<th class="p-2 border-b text-left">รายการวัสดุ &amp; รหัส CPN</th>' +
+                  '<th class="p-2 border-b text-left">บริษัท / ที่มา</th>' +
+                  '<th class="p-2 border-b text-left" style="width:85px">ขนาดบรรจุ</th>' +
+                  '<th class="p-2 border-b text-right" style="width:90px">จำนวนรับ</th>' +
+                  '<th class="p-2 border-b text-right" style="width:100px">ราคาที่ซื้อ/หน่วย</th>' +
+                  '<th class="p-2 border-b text-left" style="width:120px">เลขล็อต</th>' +
+                  '<th class="p-2 border-b text-left" style="width:135px">วันหมดอายุ</th>' +
+                  '<th class="p-2 border-b text-left">สถานะ</th>' +
+                  '<th class="p-2 border-b text-center" style="width:44px">ลบ</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody id="eiBody"></tbody>' +
+            '</table>' +
+          '</div>' +
+        '</div>' +
       '</div>'
     );
-    if (it) STK.recvPick(pre.order);
+    STK.drawRecvPending();
+    if (pre.order) {
+      STK.pickPendingOrder(pre.order, false, true);
+    } else if (it) {
+      STK.recvPick();
+    } else {
+      STK.drawRecvLots();
+    }
     STK.drawEImport();
   }
+
   STK.bumpInstockId = function (v) { return nextInstockId(v); };
-  STK.recvPick = function (orderRow) {
-    var it = parseItem($('rItem').value);
-    S.r.itemId = it ? it.id : '';
-    $('rInfo').innerHTML = it ? 'หน่วย: <b>' + esc(it.unit || '-') + '</b> · คงเหลือใช้ได้ ' + nf(it.usable) + ' · ' + badge(it.status) : '<span class="text-red-500">ยังไม่ได้เลือกวัสดุ</span>';
-    var sel = $('rOrder');
-    var list = it && it.p151 && S.orders ? S.orders.orders.filter(function (o) { return o.p151 === it.p151; }) : [];
-    sel.innerHTML = '<option value="">ไม่ผูกรายการสั่งซื้อ</option>' + list.map(function (o) {
-      return '<option value="' + o.row + '"' + (Number(orderRow) === o.row ? ' selected' : '') + '>แถว ' + o.row + ' · ' + esc(o.company) + ' · ' + nf(o.qty) + ' ' + esc(o.unit) + ' · ' + esc(o.status) + '</option>';
-    }).join('');
-    if (orderRow) STK.recvOrder();
-    if (it && !$('rPrice').value && it.planPrice) $('rPrice').value = it.planPrice;
-    STK.recvPriceHint();
-  };
-  STK.recvPriceHint = function () {
-    var it = parseItem($('rItem') && $('rItem').value), el = $('rPriceHint');
-    if (!el) return;
-    el.innerHTML = it ? priceMsg(it.planPrice, Number($('rPrice').value) || 0, Number($('rQty').value) || 0, (S.orders && S.orders.warnPct) || 0) : '';
-  };
-  STK.recvOrder = function () {
-    var row = Number($('rOrder').value);
-    var o = S.orders && S.orders.orders.filter(function (x) { return x.row === row; })[0];
-    if (!o) return;
-    if (o.company) $('rCompany').value = o.company;
-    if (o.price) $('rPrice').value = o.price;
-    if (o.qty && !$('rQty').value) $('rQty').value = o.qty;
-    STK.recvPriceHint();
-  };
-  STK.recvSave = async function () {
-    var it = parseItem($('rItem').value);
-    if (!it) return fail('กรุณาเลือกวัสดุจากรายการ');
-    var qty = Number($('rQty').value);
-    if (!(qty > 0)) return fail('ใส่จำนวนที่รับ (มากกว่า 0)');
-    if (!$('rExp').value) {
-      var c = await Swal.fire({ title: 'ไม่ได้ใส่วันหมดอายุ', text: 'ล็อตนี้จะถูกจ่ายหลังสุดและไม่ถูกแจ้งเตือนหมดอายุ ต้องการบันทึกต่อหรือไม่', icon: 'question', showCancelButton: true, confirmButtonText: 'บันทึกต่อ', cancelButtonText: 'กลับไปใส่' });
-      if (!c.isConfirmed) return;
-    }
-    var ordRow = Number($('rOrder').value) || 0;
-    var lotVal = $('rLot').value.trim();
-    var expVal = $('rExp').value;
-    var priceVal = Number($('rPrice').value) || 0;
-    $('rBtn').disabled = true;
-    var r = await call('stockReceive', { itemId: it.id, kind: $('rKind').value, company: $('rCompany').value, brand: $('rBrand').value, lotNo: lotVal,
-      expiry: expVal, received: $('rDate').value, qty: qty, price: $('rPrice').value, orderRow: ordRow || '', note: $('rNote').value });
-    if ($('rBtn')) $('rBtn').disabled = false;
-    if (!r) return;
-    if (!r.success) return fail(r.error);
-    if (ordRow) {
-      S.ei.edits[ordRow] = Object.assign({}, S.ei.edits[ordRow] || {}, {
-        lotNo: lotVal || (S.ei.edits[ordRow] && S.ei.edits[ordRow].lotNo) || '',
-        expiry: expVal || (S.ei.edits[ordRow] && S.ei.edits[ordRow].expiry) || '',
-        qty: qty,
-        price: priceVal || undefined
-      });
-      saveEiCache();
-    }
-    S.board = null; S.orders = null;
-    await loadBoard(true);
-    await loadOrders(true);
-    await toast('บันทึกรับเข้าแล้ว');
-    ['rQty', 'rLot', 'rExp', 'rBrand', 'rNote'].forEach(function (id) { if ($(id)) $(id).value = ''; });
-    STK.recvPick();
-    STK.drawEImport();
-    if ($('rDone')) $('rDone').innerHTML = '<span class="text-green-700">✓ ' + esc(it.name) + ' คงเหลือรวม ' + nf(r.balance) + ' ' + esc(r.unit || '') + ' (ล็อต ' + esc(r.lotId) + ')</span>';
-  };
 
-  function getEiFilteredOrders() {
+  STK.drawRecvPending = function () {
+    var tbody = $('p1Body');
+    if (!tbody) return;
     var all = (S.orders && S.orders.orders) || [];
-    var stMode = ($('eiStatus') && $('eiStatus').value) || 'ตรวจรับแล้ว';
-    var comp = ($('eiComp') && $('eiComp').value) || '';
-    var q = (($('eiQ') && $('eiQ').value) || '').trim().toLowerCase();
-
-    var byStatus = all.filter(function (o) {
-      if (stMode === 'ตรวจรับแล้ว') return o.status === 'ตรวจรับแล้ว';
-      if (stMode === 'recv_all') return ['ได้รับสินค้าแล้ว', 'รอตรวจรับ', 'ตรวจรับแล้ว'].indexOf(o.status) >= 0;
-      return true;
-    });
-
-    // อัปเดตรายชื่อบริษัทในตัวกรอง
-    var compSel = $('eiComp');
+    var pending = all.filter(function (o) { return o.status === 'ตรวจรับแล้ว' && remainingForOrder(o) > 0; });
+    var compSel = $('p1Comp');
     if (compSel) {
-      var seen = {};
-      var comps = [];
-      byStatus.forEach(function (o) {
-        var c = String(o.company || '').trim();
-        if (c && !seen[c]) { seen[c] = true; comps.push(c); }
-      });
+      var seen = {}, comps = [];
+      pending.forEach(function (o) { var c = String(o.company || '').trim(); if (c && !seen[c]) { seen[c] = true; comps.push(c); } });
       comps.sort(function (a, b) { return a.localeCompare(b, 'th'); });
-      var curVal = compSel.value;
-      compSel.innerHTML = '<option value="">ทุกบริษัท (' + byStatus.length + ' รายการ)</option>' + comps.map(function (c) {
-        return '<option value="' + esc(c) + '"' + (c === curVal ? ' selected' : '') + '>' + esc(c) + '</option>';
+      var curC = compSel.value;
+      compSel.innerHTML = '<option value="">ทุกบริษัท (' + pending.length + ')</option>' + comps.map(function (c) {
+        return '<option value="' + esc(c) + '"' + (c === curC ? ' selected' : '') + '>' + esc(c) + '</option>';
       }).join('');
     }
-
-    return byStatus.filter(function (o) {
-      if (comp && String(o.company || '').trim() !== comp) return false;
+    var q = (($('p1Q') && $('p1Q').value) || '').trim().toLowerCase();
+    var cf = ($('p1Comp') && $('p1Comp').value) || '';
+    var shown = pending.filter(function (o) {
+      if (cf && String(o.company || '').trim() !== cf) return false;
       if (!q) return true;
       var dbIt = itemByP151(o.p151, o.name);
       var cpn = (dbIt && dbIt.cpn) || '';
-      var hay = [o.name, o.p151, o.company, cpn, o.note].join(' ').toLowerCase();
-      return hay.indexOf(q) >= 0;
+      return [o.name, o.p151, o.company, cpn].join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+    if (!shown.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="p-5 text-center text-gray-400">ไม่มีรายการตรวจรับแล้วที่รอรับเข้าคลัง</td></tr>';
+      return;
+    }
+    tbody.innerHTML = shown.map(function (o) {
+      var dbIt = itemByP151(o.p151, o.name);
+      var cpn = (dbIt && dbIt.cpn) || '';
+      var rec = Number(o.receivedQty) || 0;
+      var rem = remainingForOrder(o);
+      var qQty = queuedQtyForOrder(o.row);
+      return '<tr class="border-t hover:bg-emerald-50/30">' +
+        '<td class="p-2 text-xs whitespace-nowrap"><b>แถว ' + o.row + '</b><div class="text-gray-400">' + esc(fd(o.received || o.ordered)) + '</div></td>' +
+        '<td class="p-2"><div class="font-medium text-gray-900">' + esc(o.name) + '</div><div class="text-[11px] text-gray-400 font-mono">' + esc(o.p151 || '-') + (cpn ? ' · CPN: ' + esc(cpn) : '') + '</div></td>' +
+        '<td class="p-2 text-xs">' + esc(o.company || '-') + '</td>' +
+        '<td class="p-2 text-right whitespace-nowrap">' + nf(o.qty) + ' ' + esc(o.unit || '') + '</td>' +
+        '<td class="p-2 text-right whitespace-nowrap text-gray-500">' + nf(rec) + '</td>' +
+        '<td class="p-2 text-right whitespace-nowrap"><b class="text-emerald-700">' + nf(rem) + '</b>' + (qQty > 0 ? '<div class="text-[11px] text-indigo-600">ในคิวแล้ว ' + nf(qQty) + '</div>' : '') + '</td>' +
+        '<td class="p-2 text-right whitespace-nowrap">' + (o.price > 0 ? nf(o.price) : '<span class="text-gray-300">-</span>') + '</td>' +
+        '<td class="p-2 text-center whitespace-nowrap space-x-1">' +
+          '<button type="button" onclick="STK.pickPendingOrder(' + o.row + ',false)" class="px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 text-xs">รับล็อตเดียว</button>' +
+          '<button type="button" onclick="STK.pickPendingOrder(' + o.row + ',true)" class="px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs">แบ่งรับหลายล็อต</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  };
+
+  STK.pickPendingOrder = function (orderRow, isSplit, noScroll) {
+    var o = (S.orders && S.orders.orders || []).filter(function (x) { return x.row === Number(orderRow); })[0];
+    if (!o) return;
+    var dbIt = itemByP151(o.p151, o.name);
+    if (!dbIt) return fail('ไม่พบรายการ "' + o.name + '" ในฐานข้อมูลวัสดุ (Database)');
+    if ($('rItem')) $('rItem').value = itemLabel(dbIt);
+    var rem = Math.max(0, Math.round((remainingForOrder(o) - queuedQtyForOrder(o.row)) * 10000) / 10000) || remainingForOrder(o);
+    recvMode = isSplit ? 'split' : 'single';
+    recvLots = isSplit ? [{ lotNo: '', expiry: '', qty: '' }, { lotNo: '', expiry: '', qty: '' }] : [{ lotNo: '', expiry: '', qty: rem }];
+    STK.recvPick(o.row);
+    if ($('rOrder')) $('rOrder').value = String(o.row);
+    if (o.company && $('rCompany')) $('rCompany').value = o.company;
+    if ($('rPrice')) $('rPrice').value = o.price > 0 ? o.price : '';
+    STK.recvPriceHint();
+    STK.setRecvMode(recvMode, true);
+    if (!noScroll) {
+      var p2 = $('recvPart2');
+      if (p2) p2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  STK.setRecvMode = function (mode, keepLots) {
+    recvMode = mode === 'split' ? 'split' : 'single';
+    if (!keepLots) {
+      syncRecvLotsFromDom();
+      if (recvMode === 'single') {
+        recvLots = [recvLots[0] || { lotNo: '', expiry: '', qty: '' }];
+      } else if (recvLots.length < 2) {
+        recvLots.push({ lotNo: '', expiry: '', qty: '' });
+      }
+    }
+    var bs = $('rModeSingle'), bp = $('rModeSplit'), addBtn = $('rAddLotBtn');
+    if (bs) bs.className = 'px-2.5 py-1 rounded-md font-medium transition ' + (recvMode === 'single' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-600 hover:text-gray-900');
+    if (bp) bp.className = 'px-2.5 py-1 rounded-md font-medium transition ' + (recvMode === 'split' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-900');
+    if (addBtn) addBtn.classList.toggle('hidden', recvMode !== 'split');
+    STK.drawRecvLots();
+  };
+
+  function syncRecvLotsFromDom() {
+    var trs = document.querySelectorAll('#rLotsBody tr');
+    if (!trs.length) return;
+    trs.forEach(function (tr, i) {
+      if (!recvLots[i]) return;
+      recvLots[i].lotNo = tr.querySelector('.rl-lot').value;
+      recvLots[i].expiry = tr.querySelector('.rl-exp').value;
+      recvLots[i].qty = tr.querySelector('.rl-qty').value;
     });
   }
+
+  STK.addRecvLot = function () {
+    syncRecvLotsFromDom();
+    recvLots.push({ lotNo: '', expiry: '', qty: '' });
+    STK.drawRecvLots();
+  };
+
+  STK.removeRecvLot = function (i) {
+    syncRecvLotsFromDom();
+    recvLots.splice(i, 1);
+    if (!recvLots.length) recvLots.push({ lotNo: '', expiry: '', qty: '' });
+    STK.drawRecvLots();
+  };
+
+  STK.drawRecvLots = function () {
+    var tb = $('rLotsBody');
+    if (!tb) return;
+    tb.innerHTML = recvLots.map(function (l, i) {
+      return '<tr class="border-t">' +
+        '<td class="p-1.5 text-center text-xs text-gray-400">' + (i + 1) + '</td>' +
+        '<td class="p-1.5"><input class="rl-lot ' + INPUT + ' text-xs font-mono" value="' + esc(l.lotNo) + '" placeholder="เลขล็อต"></td>' +
+        '<td class="p-1.5"><input class="rl-exp ' + INPUT + ' text-xs" type="date" value="' + esc(l.expiry) + '"></td>' +
+        '<td class="p-1.5"><input class="rl-qty ' + INPUT + ' text-xs text-right font-medium" type="number" min="0" step="any" value="' + esc(l.qty) + '" placeholder="จำนวน" oninput="STK.updateRecvLotsSum()"></td>' +
+        '<td class="p-1.5 text-center">' + (recvMode === 'split' && recvLots.length > 1 ? '<button type="button" onclick="STK.removeRecvLot(' + i + ')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-xmark"></i></button>' : '') + '</td>' +
+      '</tr>';
+    }).join('');
+    STK.updateRecvLotsSum();
+  };
+
+  STK.updateRecvLotsSum = function () {
+    syncRecvLotsFromDom();
+    var sum = 0;
+    recvLots.forEach(function (l) { sum += Number(l.qty) || 0; });
+    sum = Math.round(sum * 10000) / 10000;
+    var el = $('rLotsSum');
+    if (!el) return;
+    var row = Number($('rOrder') && $('rOrder').value) || 0;
+    var o = row && S.orders ? S.orders.orders.filter(function (x) { return x.row === row; })[0] : null;
+    if (o) {
+      var rem = Math.max(0, Math.round((remainingForOrder(o) - queuedQtyForOrder(o.row)) * 10000) / 10000);
+      el.innerHTML = 'รวมที่กรอก <b>' + nf(sum) + '</b> ' + esc(o.unit || '') + ' / รอรับคงเหลือ <b>' + nf(rem) + '</b>';
+    } else {
+      el.innerHTML = sum > 0 ? 'รวมที่กรอก <b>' + nf(sum) + '</b>' : '';
+    }
+  };
+
+  STK.recvPick = function (orderRow) {
+    var it = parseItem($('rItem') && $('rItem').value);
+    S.r.itemId = it ? it.id : '';
+    if ($('rInfo')) {
+      $('rInfo').innerHTML = it ? 'หน่วย: <b>' + esc(it.unit || '-') + '</b> · ขนาดบรรจุ: <b class="font-mono">' + esc(it.pack || '-') + '</b> · รหัส CPN: <span class="font-mono">' + esc(it.cpn || '-') + '</span> · คงเหลือใช้ได้ ' + nf(it.usable) + ' · ' + badge(it.status) : '<span class="text-red-500">ยังไม่ได้เลือกวัสดุ</span>';
+    }
+    if ($('rPack') && it) $('rPack').value = it.pack || '';
+    var sel = $('rOrder');
+    if (sel) {
+      var list = it && it.p151 && S.orders ? S.orders.orders.filter(function (o) { return o.p151 === it.p151; }) : [];
+      sel.innerHTML = '<option value="">ไม่ผูกรายการสั่งซื้อ (คีย์รับเข้าเอง)</option>' + list.map(function (o) {
+        return '<option value="' + o.row + '"' + (Number(orderRow) === o.row ? ' selected' : '') + '>แถว ' + o.row + ' · ' + esc(o.company) + ' · ' + nf(o.qty) + ' ' + esc(o.unit) + ' · ' + esc(o.status) + '</option>';
+      }).join('');
+    }
+    if (orderRow) STK.recvOrder();
+    STK.recvPriceHint();
+    STK.drawRecvLots();
+  };
+
+  STK.recvPriceHint = function () {
+    var it = parseItem($('rItem') && $('rItem').value), el = $('rPriceHint');
+    if (!el) return;
+    var sum = 0;
+    recvLots.forEach(function (l) { sum += Number(l.qty) || 0; });
+    el.innerHTML = it ? priceMsg(it.planPrice, Number($('rPrice').value) || 0, sum, (S.orders && S.orders.warnPct) || 0) : '';
+  };
+
+  STK.recvOrder = function () {
+    var row = Number($('rOrder') && $('rOrder').value);
+    var o = S.orders && S.orders.orders.filter(function (x) { return x.row === row; })[0];
+    if (!o) { STK.updateRecvLotsSum(); return; }
+    if (o.company && $('rCompany')) $('rCompany').value = o.company;
+    if (o.price > 0 && $('rPrice')) $('rPrice').value = o.price;
+    if (recvMode === 'single' && recvLots[0] && !(Number(recvLots[0].qty) > 0)) {
+      recvLots[0].qty = Math.max(0, Math.round((remainingForOrder(o) - queuedQtyForOrder(o.row)) * 10000) / 10000) || remainingForOrder(o);
+      STK.drawRecvLots();
+    }
+    STK.recvPriceHint();
+  };
+
+  STK.clearRecvForm = function () {
+    ['rItem', 'rCompany', 'rBrand', 'rPack', 'rPrice', 'rNote'].forEach(function (id) { if ($(id)) $(id).value = ''; });
+    if ($('rOrder')) $('rOrder').value = '';
+    if ($('rInfo')) $('rInfo').innerHTML = '';
+    if ($('rPriceHint')) $('rPriceHint').innerHTML = '';
+    recvMode = 'single';
+    recvLots = [{ lotNo: '', expiry: '', qty: '' }];
+    STK.setRecvMode('single', true);
+  };
+
+  STK.queueReceive = async function () {
+    syncRecvLotsFromDom();
+    var it = parseItem($('rItem').value);
+    if (!it) return fail('กรุณาเลือกวัสดุจากรายการ');
+    var validLots = recvLots.filter(function (l) { return Number(l.qty) > 0; });
+    if (!validLots.length) return fail('ใส่จำนวนที่รับอย่างน้อย 1 ล็อต (มากกว่า 0)');
+    var missingExp = validLots.some(function (l) { return !String(l.expiry || '').trim(); });
+    if (missingExp) {
+      var c = await Swal.fire({ title: 'มีล็อตที่ไม่ได้ใส่วันหมดอายุ', text: 'ล็อตที่ไม่ใส่วันหมดอายุจะถูกจ่ายหลังสุดและไม่ถูกแจ้งเตือนหมดอายุ ต้องการส่งเข้าคิวต่อหรือไม่', icon: 'question', showCancelButton: true, confirmButtonText: 'ส่งเข้าคิวต่อ', cancelButtonText: 'กลับไปใส่' });
+      if (!c.isConfirmed) return;
+    }
+    var ordRow = Number($('rOrder').value) || 0;
+    var kind = $('rKind').value;
+    var company = $('rCompany').value.trim();
+    var brand = $('rBrand').value.trim();
+    var pack = ($('rPack') && $('rPack').value.trim()) || it.pack || '';
+    var price = Number($('rPrice').value) || 0;
+    var received = $('rDate').value || today();
+    var note = $('rNote').value.trim();
+    var cpn = String(it.cpn || '').trim().toUpperCase();
+    if (cpn === 'DN00353') cpn = 'DT00228';
+
+    validLots.forEach(function (l) {
+      S.ei.queue.push({
+        qid: 'Q_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        orderRow: ordRow,
+        itemId: it.id,
+        name: it.name,
+        cpn: cpn,
+        p151: it.p151 || '',
+        unit: it.unit || '',
+        pack: pack,
+        kind: kind,
+        company: company,
+        brand: brand,
+        lotNo: String(l.lotNo || '').trim(),
+        expiry: String(l.expiry || '').trim(),
+        received: received,
+        qty: Number(l.qty),
+        price: price,
+        note: note,
+        sel: true,
+        webReceived: false,
+        lotId: '',
+        exportedId: ''
+      });
+    });
+    saveEiCache();
+    STK.clearRecvForm();
+    STK.drawRecvPending();
+    STK.drawEImport();
+    await toast('ส่งเข้าคิวส่วนที่ 3 แล้ว (' + validLots.length + ' ล็อต)');
+    var p3 = $('recvPart3');
+    if (p3) p3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   STK.drawEImport = function () {
     var tbody = $('eiBody');
     if (!tbody) return;
-    var list = getEiFilteredOrders();
-    var allInspected = ((S.orders && S.orders.orders) || []).filter(function (o) { return o.status === 'ตรวจรับแล้ว'; }).length;
+    var mode = ($('eiFilter') && $('eiFilter').value) || 'all';
+    var qAll = S.ei.queue || [];
+    var list = qAll.filter(function (q) {
+      if (mode === 'pending_web') return !q.webReceived;
+      if (mode === 'pending_xls') return !q.exportedId;
+      return true;
+    });
     var sumEl = $('eiSummary');
     if (sumEl) {
-      sumEl.innerHTML = 'พบรายการตามตัวกรอง <b>' + list.length + '</b> รายการ (รายการที่สถานะ "ตรวจรับแล้ว" ทั้งหมด ' + allInspected + ' รายการ) · ติ๊กเลือกรายการที่ต้องการรวมในไฟล์เดียวกันแล้วกดดาวน์โหลด';
+      var waitWeb = qAll.filter(function (q) { return !q.webReceived; }).length;
+      var waitXls = qAll.filter(function (q) { return !q.exportedId; }).length;
+      sumEl.innerHTML = 'ในคิวทั้งหมด <b>' + qAll.length + '</b> รายการ · รอยืนยันเข้าคลัง Web App <b>' + waitWeb + '</b> รายการ · รอสร้างไฟล์ E-Import <b>' + waitXls + '</b> รายการ';
     }
-
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="p-6 text-center text-gray-400">ไม่พบรายการสั่งซื้อตามตัวกรองนี้ (เปลี่ยนสถานะเป็น "ตรวจรับแล้ว" ในหน้าสั่งซื้อวัสดุ หรือสลับตัวกรองด้านบน)</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="p-6 text-center text-gray-400">ยังไม่มีรายการในคิวส่วนที่ 3 — เลือกรายการจากส่วนที่ 1 หรือกรอกรับเข้าในส่วนที่ 2 แล้วกดส่งเข้าคิว</td></tr>';
       STK.eiUpdateCount();
       return;
     }
-
-    tbody.innerHTML = list.map(function (o) {
-      var dbIt = itemByP151(o.p151, o.name);
-      var ed = S.ei.edits[o.row] || {};
-      var cpn = (ed.cpn !== undefined ? ed.cpn : (dbIt && dbIt.cpn)) || '';
+    tbody.innerHTML = list.map(function (q) {
+      var cpn = String(q.cpn || '').trim().toUpperCase();
       if (cpn === 'DN00353') cpn = 'DT00228';
       var m = (typeof XlsWriter !== 'undefined' && XlsWriter.getMasterItem) ? XlsWriter.getMasterItem(cpn) : null;
-      var qtyVal = ed.qty !== undefined ? ed.qty : (o.qty || 0);
-      var priceVal = ed.price !== undefined ? ed.price : (o.price || 0);
-      var lotVal = ed.lotNo !== undefined ? ed.lotNo : (o.lotNo || '');
-      var expVal = ed.expiry !== undefined ? ed.expiry : (o.expiry || '');
-      var expBadge = S.ei.exported[o.row];
-      var checked = !!S.ei.sel[o.row];
-
       var unitBadge = m
         ? '<span class="inline-block px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-mono">' + esc(m.muId + ':' + m.muName + ' · ' + m.packId + ':' + m.packName) + '</span>'
         : '<span class="inline-block px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[11px]">ตรวจรหัส CPN</span>';
+      var ro = q.webReceived ? ' disabled' : '';
+      var webBadge = q.webReceived
+        ? '<span class="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[11px]">✓ รับเข้าคลังแล้ว (' + esc(q.lotId || '') + ')</span>'
+        : '<span class="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px]">รอยืนยันเข้าคลัง</span>';
+      var xlsBadge = q.exportedId
+        ? '<span class="inline-block px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 text-[11px]">✓ ' + esc(q.exportedId) + '</span>'
+        : '<span class="text-gray-400 text-[11px]">ยังไม่ส่งออก .xls</span>';
+      var srcTag = q.orderRow ? ('<div class="text-[11px] text-blue-600">ใบสั่งแถว ' + q.orderRow + '</div>') : '<div class="text-[11px] text-purple-600">คีย์รับเข้าเอง</div>';
 
-      return '<tr class="border-t hover:bg-indigo-50/30 ' + (checked ? 'bg-indigo-50/50' : '') + '">' +
-        '<td class="p-2 text-center"><input type="checkbox" class="ei-chk" data-row="' + o.row + '" ' + (checked ? 'checked' : '') + ' onchange="STK.eiToggleRow(' + o.row + ', this.checked)"></td>' +
-        '<td class="p-2 text-xs whitespace-nowrap"><b>แถว ' + o.row + '</b><div class="text-gray-400">' + esc(fd(o.received || o.ordered)) + '</div><div>' + badge(o.status) + '</div></td>' +
+      return '<tr class="border-t hover:bg-indigo-50/30 ' + (q.sel ? 'bg-indigo-50/40' : '') + '">' +
+        '<td class="p-2 text-center"><input type="checkbox" class="ei-chk" ' + (q.sel ? 'checked' : '') + ' onchange="STK.eiToggleRow(\'' + esc(q.qid) + '\', this.checked)"></td>' +
         '<td class="p-2">' +
-          '<div class="font-medium text-gray-900">' + esc(o.name) + '</div>' +
+          '<div class="font-medium text-gray-900">' + esc(q.name) + '</div>' +
           '<div class="flex flex-wrap items-center gap-1.5 mt-1">' +
-            '<input type="text" value="' + esc(cpn) + '" placeholder="รหัส CPN" onchange="STK.eiEdit(' + o.row + ',\'cpn\',this.value);STK.drawEImport()" class="border rounded px-1.5 py-0.5 text-xs font-mono w-24 ' + (cpn ? 'border-gray-300 bg-gray-50' : 'border-red-400 bg-red-50') + '" title="รหัส ProductID ใน CPN">' +
-            (o.p151 ? '<span class="text-[11px] text-gray-400 font-mono">' + esc(o.p151) + '</span>' : '') +
+            '<input type="text" value="' + esc(cpn) + '" placeholder="รหัส CPN" onchange="STK.eiEdit(\'' + esc(q.qid) + '\',\'cpn\',this.value);STK.drawEImport()" class="border rounded px-1.5 py-0.5 text-xs font-mono w-24 ' + (cpn ? 'border-gray-300 bg-gray-50' : 'border-red-400 bg-red-50') + '" title="รหัส ProductID ใน CPN">' +
+            (q.p151 ? '<span class="text-[11px] text-gray-400 font-mono">' + esc(q.p151) + '</span>' : '') +
             unitBadge +
           '</div>' +
         '</td>' +
-        '<td class="p-2 text-xs">' + esc(o.company || '-') + '</td>' +
-        '<td class="p-2"><input type="number" min="0" step="any" value="' + esc(qtyVal) + '" oninput="STK.eiEdit(' + o.row + ',\'qty\',this.value)" class="border rounded px-2 py-1 w-full text-right text-xs"></td>' +
-        '<td class="p-2"><input type="number" min="0" step="any" value="' + esc(priceVal) + '" oninput="STK.eiEdit(' + o.row + ',\'price\',this.value)" class="border rounded px-2 py-1 w-full text-right text-xs"></td>' +
-        '<td class="p-2"><input type="text" value="' + esc(lotVal) + '" placeholder="เลข Lot" oninput="STK.eiEdit(' + o.row + ',\'lotNo\',this.value)" class="border rounded px-2 py-1 w-full text-xs font-mono"></td>' +
-        '<td class="p-2"><input type="date" value="' + esc(expVal) + '" onchange="STK.eiEdit(' + o.row + ',\'expiry\',this.value)" class="border rounded px-2 py-1 w-full text-xs"></td>' +
-        '<td class="p-2 text-xs">' + (expBadge ? '<span class="inline-block px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-[11px]">✓ ' + esc(expBadge) + '</span>' : '<span class="text-gray-400 text-[11px]">ยังไม่ส่งออก</span>') + '</td>' +
+        '<td class="p-2 text-xs"><div>' + esc(q.company || '-') + '</div>' + srcTag + '</td>' +
+        '<td class="p-2"><input type="text" value="' + esc(q.pack || '') + '"' + ro + ' placeholder="1x1" oninput="STK.eiEdit(\'' + esc(q.qid) + '\',\'pack\',this.value)" class="border rounded px-2 py-1 w-full text-xs font-mono"></td>' +
+        '<td class="p-2"><input type="number" min="0" step="any" value="' + esc(q.qty) + '"' + ro + ' oninput="STK.eiEdit(\'' + esc(q.qid) + '\',\'qty\',this.value)" class="border rounded px-2 py-1 w-full text-right text-xs"></td>' +
+        '<td class="p-2"><input type="number" min="0" step="any" value="' + esc(q.price) + '"' + ro + ' oninput="STK.eiEdit(\'' + esc(q.qid) + '\',\'price\',this.value)" class="border rounded px-2 py-1 w-full text-right text-xs"></td>' +
+        '<td class="p-2"><input type="text" value="' + esc(q.lotNo) + '"' + ro + ' placeholder="เลข Lot" oninput="STK.eiEdit(\'' + esc(q.qid) + '\',\'lotNo\',this.value)" class="border rounded px-2 py-1 w-full text-xs font-mono"></td>' +
+        '<td class="p-2"><input type="date" value="' + esc(q.expiry) + '"' + ro + ' onchange="STK.eiEdit(\'' + esc(q.qid) + '\',\'expiry\',this.value)" class="border rounded px-2 py-1 w-full text-xs"></td>' +
+        '<td class="p-2 text-xs space-y-1"><div>' + webBadge + '</div><div>' + xlsBadge + '</div></td>' +
+        '<td class="p-2 text-center"><button type="button" onclick="STK.removeQueueRow(\'' + esc(q.qid) + '\')" class="text-red-500 hover:text-red-700" title="ลบออกจากคิว"><i class="fa-solid fa-trash-can"></i></button></td>' +
       '</tr>';
     }).join('');
     STK.eiUpdateCount();
   };
 
-  STK.eiEdit = function (row, field, val) {
-    if (!S.ei.edits[row]) S.ei.edits[row] = {};
-    S.ei.edits[row][field] = val;
+  STK.eiEdit = function (qid, field, val) {
+    var q = (S.ei.queue || []).filter(function (x) { return x.qid === qid; })[0];
+    if (!q) return;
+    q[field] = (field === 'qty' || field === 'price') ? (Number(val) || 0) : val;
     saveEiCache();
   };
 
-  STK.eiToggleRow = function (row, checked) {
-    if (checked) S.ei.sel[row] = true;
-    else delete S.ei.sel[row];
+  STK.eiToggleRow = function (qid, checked) {
+    var q = (S.ei.queue || []).filter(function (x) { return x.qid === qid; })[0];
+    if (q) { q.sel = !!checked; saveEiCache(); }
     STK.eiUpdateCount();
   };
 
   STK.eiToggleAll = function (checked) {
-    var list = getEiFilteredOrders();
-    list.forEach(function (o) {
-      if (checked) S.ei.sel[o.row] = true;
-      else delete S.ei.sel[o.row];
+    var mode = ($('eiFilter') && $('eiFilter').value) || 'all';
+    (S.ei.queue || []).forEach(function (q) {
+      var show = (mode === 'pending_web') ? !q.webReceived : ((mode === 'pending_xls') ? !q.exportedId : true);
+      if (show) q.sel = !!checked;
     });
+    saveEiCache();
     STK.drawEImport();
   };
 
   STK.eiUpdateCount = function () {
-    var n = Object.keys(S.ei.sel || {}).length;
-    var el = $('eiSelCount');
-    if (el) el.textContent = String(n);
+    var sel = (S.ei.queue || []).filter(function (q) { return q.sel; });
+    var webWait = sel.filter(function (q) { return !q.webReceived; }).length;
+    if ($('eiSelCount')) $('eiSelCount').textContent = String(sel.length);
+    if ($('eiWebCount')) $('eiWebCount').textContent = String(webWait);
+  };
+
+  STK.removeQueueRow = function (qid) {
+    S.ei.queue = (S.ei.queue || []).filter(function (x) { return x.qid !== qid; });
+    saveEiCache();
+    STK.drawRecvPending();
+    STK.drawEImport();
+  };
+
+  STK.clearDoneQueue = function () {
+    var before = (S.ei.queue || []).length;
+    S.ei.queue = (S.ei.queue || []).filter(function (q) { return !(q.webReceived && q.exportedId); });
+    var removed = before - S.ei.queue.length;
+    saveEiCache();
+    STK.drawRecvPending();
+    STK.drawEImport();
+    if (!removed) toast('ยังไม่มีรายการที่ทั้งยืนยันเข้าคลังและส่งออก .xls แล้ว');
+  };
+
+  STK.confirmQueueReceive = async function (andExport) {
+    var selected = (S.ei.queue || []).filter(function (q) { return q.sel; });
+    if (!selected.length) return fail('กรุณาติ๊กเลือกรายการในคิวส่วนที่ 3 อย่างน้อย 1 รายการ');
+    var toReceive = selected.filter(function (q) { return !q.webReceived; });
+
+    if (toReceive.length) {
+      var btn = $('eiWebBtn'), btn2 = $('eiBothBtn');
+      if (btn) btn.disabled = true;
+      if (btn2) btn2.disabled = true;
+      var okCount = 0;
+      try {
+        for (var i = 0; i < toReceive.length; i++) {
+          var q = toReceive[i];
+          if (!(Number(q.qty) > 0)) { await fail('จำนวนรับของ "' + q.name + '" ต้องมากกว่า 0'); break; }
+          var r = await call('stockReceive', {
+            itemId: q.itemId, kind: q.kind || 'รับเข้า', company: q.company || '', brand: q.brand || '', pack: q.pack || '',
+            lotNo: q.lotNo || '', expiry: q.expiry || '', received: q.received || today(),
+            qty: Number(q.qty), price: Number(q.price) || 0, orderRow: q.orderRow || '', note: q.note || ''
+          });
+          if (!r || !r.success) { await fail((r && r.error) || ('รับเข้าคลัง "' + q.name + '" ไม่สำเร็จ')); break; }
+          q.webReceived = true;
+          q.lotId = r.lotId || '';
+          okCount++;
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+        if (btn2) btn2.disabled = false;
+      }
+      saveEiCache();
+      if (okCount > 0) {
+        S.board = null; S.orders = null;
+        await Promise.all([loadBoard(true), loadOrders(true)]);
+        STK.drawRecvPending();
+        STK.drawEImport();
+      }
+      if (okCount < toReceive.length) return;
+      if (!andExport) await toast('ยืนยันรับเข้าคลังสำเร็จ ' + okCount + ' ล็อตแล้ว');
+    } else if (!andExport) {
+      return toast('รายการที่เลือกยืนยันรับเข้าคลังไปหมดแล้ว');
+    }
+
+    if (andExport) await STK.exportEImport();
   };
 
   STK.exportEImport = async function () {
     if (typeof XlsWriter === 'undefined' || !XlsWriter.downloadEImport) {
       return fail('ไม่พบโมดูล XlsWriter.downloadEImport (กรุณารีเฟรชหน้าเว็บ)');
     }
-    var selRows = Object.keys(S.ei.sel || {}).map(Number).filter(Boolean);
-    if (!selRows.length) return fail('กรุณาติ๊กเลือกรายการที่ต้องการสร้างไฟล์ E-Import อย่างน้อย 1 รายการ');
+    var selected = (S.ei.queue || []).filter(function (q) { return q.sel; });
+    if (!selected.length) return fail('กรุณาติ๊กเลือกรายการที่ต้องการสร้างไฟล์ E-Import อย่างน้อย 1 รายการ');
 
     var instockId = (($('eiInstockId') && $('eiInstockId').value) || '').trim();
     if (!instockId) return fail('กรุณาระบุเลขที่ใบรับอ้างอิง (InstockID) เช่น SO-6911-00001');
     var label = (($('eiLabel') && $('eiLabel').value) || 'ทันตกรรมวังทอง').trim();
 
-    var allOrders = (S.orders && S.orders.orders) || [];
-    var byRow = {};
-    allOrders.forEach(function (o) { byRow[o.row] = o; });
-
     var lines = [];
     var missingCpn = [];
-    selRows.forEach(function (r) {
-      var o = byRow[r];
-      if (!o) return;
-      var dbIt = itemByP151(o.p151, o.name);
-      var ed = S.ei.edits[r] || {};
-      var cpn = String((ed.cpn !== undefined ? ed.cpn : (dbIt && dbIt.cpn)) || '').trim().toUpperCase();
+    selected.forEach(function (q) {
+      var cpn = String(q.cpn || '').trim().toUpperCase();
       if (cpn === 'DN00353') cpn = 'DT00228';
-      if (!cpn) {
-        missingCpn.push('แถว ' + r + ' (' + o.name + ')');
-        return;
-      }
-      var qty = Number(ed.qty !== undefined ? ed.qty : o.qty) || 0;
-      var price = Number(ed.price !== undefined ? ed.price : o.price) || 0;
-      var lotNo = String(ed.lotNo !== undefined ? ed.lotNo : (o.lotNo || '')).trim();
-      var expiry = String(ed.expiry !== undefined ? ed.expiry : (o.expiry || '')).trim();
+      if (!cpn) { missingCpn.push(q.name); return; }
       lines.push({
-        orderRow: r,
+        qid: q.qid,
         InstockID: instockId,
         ProductID: cpn,
-        ProductName: o.name,
-        Quantity: qty,
-        UnitCost: price,
-        LotNumber: lotNo,
-        ExpDate: expiry
+        ProductName: q.name,
+        LotDetail: String(q.pack || '').trim() || undefined,
+        Quantity: Number(q.qty) || 0,
+        UnitCost: Number(q.price) || 0,
+        LotNumber: String(q.lotNo || '').trim(),
+        ExpDate: String(q.expiry || '').trim()
       });
     });
 
@@ -656,10 +936,7 @@
     if (!lines.length) return fail('ไม่พบรายการที่เลือก');
 
     var fname = XlsWriter.downloadEImport(lines, instockId, label, new Date());
-    lines.forEach(function (l) {
-      S.ei.exported[l.orderRow] = instockId;
-      delete S.ei.sel[l.orderRow];
-    });
+    selected.forEach(function (q) { q.exportedId = instockId; });
     saveEiCache();
     var nextId = nextInstockId(instockId);
     if ($('eiInstockId')) $('eiInstockId').value = nextId;
@@ -852,13 +1129,13 @@
   function priceMsg(planPrice, price, qty, warn) {
     if (!(price > 0)) return '';
     if (!(planPrice > 0)) {
-      return '<div class="mt-1 p-2 rounded-lg bg-slate-50 text-slate-600">ไม่มีราคาแผนอ้างอิง · ราคาสั่งซื้อ <b>' + nf(price) + '</b> บาท/หน่วย' + (qty > 0 ? ' (รวม <b>' + nf(price * qty) + '</b> บาท)' : '') + '</div>';
+      return '<div class="mt-1 p-2 rounded-lg bg-slate-50 text-slate-600">ไม่มีราคาแผนอ้างอิง · ราคาที่ซื้อ <b>' + nf(price) + '</b> บาท/หน่วย' + (qty > 0 ? ' (รวม <b>' + nf(price * qty) + '</b> บาท)' : '') + '</div>';
     }
     var diff = price - planPrice, pct = Math.round(diff / planPrice * 1000) / 10;
     var cls = pct > warn ? 'bg-red-50 text-red-700' : (diff > 0 ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700');
     var word = diff > 0 ? 'สูงกว่าแผน' : (diff < 0 ? 'ต่ำกว่าแผน' : 'เท่ากับแผน');
-    return '<div class="mt-1 p-2 rounded-lg ' + cls + '">ราคาแผน ' + nf(planPrice) + ' → ราคาที่สั่งซื้อ <b>' + nf(price) + '</b> · <b>' + word + (diff ? ' ' + nf(Math.abs(diff)) + ' (' + (diff > 0 ? '+' : '-') + Math.abs(pct) + '%)' : '') + '</b>' +
-      (qty > 0 ? ' · รวมสั่ง <b>' + nf(price * qty) + '</b> บาท' + (diff ? ' (' + (diff > 0 ? 'เกินแผน ' : 'ประหยัด ') + nf(Math.abs(diff * qty)) + ' บาท)' : '') : '') + '</div>';
+    return '<div class="mt-1 p-2 rounded-lg ' + cls + '">ราคาแผน ' + nf(planPrice) + ' → ราคาที่ซื้อ <b>' + nf(price) + '</b> · <b>' + word + (diff ? ' ' + nf(Math.abs(diff)) + ' (' + (diff > 0 ? '+' : '-') + Math.abs(pct) + '%)' : '') + '</b>' +
+      (qty > 0 ? ' · รวมซื้อ <b>' + nf(price * qty) + '</b> บาท' + (diff ? ' (' + (diff > 0 ? 'เกินแผน ' : 'ประหยัด ') + nf(Math.abs(diff * qty)) + ' บาท)' : '') : '') + '</div>';
   }
   function diffCell(o, warn) {
     if (o.diff === null) return '<span class="text-gray-300">-</span>';
@@ -910,7 +1187,7 @@
       '</div>' +
       '<div id="ocmp" class="text-sm mb-2"></div>' +
       '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr><th class="' + TH + '"><input type="checkbox" aria-label="เลือกทั้งหมด" onchange="STK.selAll(this.checked)"></th>' +
-      ['แถว', 'วันที่สั่ง', 'รายการ', 'บริษัท', 'จำนวน', 'ราคาที่สั่ง', 'ราคาแผน', 'ส่วนต่าง', 'สถานะ', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') + '</tr></thead><tbody id="obody"></tbody></table></div>');
+      ['แถว', 'วันที่สั่ง', 'รายการ', 'บริษัท', 'จำนวน', 'ราคาที่ซื้อ', 'ราคาแผน', 'ส่วนต่าง', 'สถานะ', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') + '</tr></thead><tbody id="obody"></tbody></table></div>');
     drawOrders();
   }
   STK.filterOrders = function () {
@@ -1114,7 +1391,7 @@
             '<button type="button" id="oUsePlanBtn" onclick="STK.usePlanPrice(' + row + ')" class="px-2 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 text-xs ' + (planPriceVal > 0 ? '' : 'hidden') + '">ใช้ราคาแผน</button>' +
           '</div>' +
         '</div>' +
-        '<div class="md:col-span-2"><label class="text-xs font-medium text-blue-700">ราคาที่สั่งซื้อ/หน่วย (บาท รวม VAT) — กรอกราคาที่สั่งซื้อเทียบกับราคาแผน</label><input id="oPrice" type="number" min="0" step="any" placeholder="กรอกราคาที่สั่งซื้อจริง (บาท/หน่วย)" value="' + esc(o && o.price > 0 ? o.price : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + ' border-blue-300 font-medium"></div>' +
+        '<div class="md:col-span-2"><label class="text-xs font-medium text-blue-700">ราคาที่ซื้อ/หน่วย (บาท รวม VAT) — กรอกราคาที่ซื้อเทียบกับราคาแผน</label><input id="oPrice" type="number" min="0" step="any" placeholder="กรอกราคาที่ซื้อจริง (บาท/หน่วย)" value="' + esc(o && o.price > 0 ? o.price : '') + '" oninput="STK.orderCheck(' + row + ')" class="' + INPUT + ' border-blue-300 font-medium"></div>' +
         '<div><label class="text-xs text-gray-500">วันที่แจ้ง</label><input id="oNotified" type="date" value="' + esc(o ? o.notified : today()) + '" class="' + INPUT + '"></div>' +
         '<div><label class="text-xs text-gray-500">วันที่สั่ง</label><input id="oOrdered" type="date" value="' + esc(o ? o.ordered : today()) + '" class="' + INPUT + '"></div>' +
         '<div class="md:col-span-2"><label class="text-xs text-gray-500">หมายเหตุ</label><input id="oNote" value="' + esc(o ? o.note : '') + '" class="' + INPUT + '"></div>' +
@@ -1152,7 +1429,7 @@
                 '<th class="' + TH + ' min-w-[220px]">วัสดุ (พิมพ์ค้นหา)</th>' +
                 '<th class="' + TH + ' min-w-[150px]">บริษัท (กรอกแยกได้)</th>' +
                 '<th class="' + TH + ' text-right w-24">จำนวนสั่ง</th>' +
-                '<th class="' + TH + ' text-right w-28">ราคาสั่งซื้อ/หน่วย</th>' +
+                '<th class="' + TH + ' text-right w-28">ราคาที่ซื้อ/หน่วย</th>' +
                 '<th class="' + TH + ' text-right w-24">รวมเงิน</th>' +
                 '<th class="' + TH + ' min-w-[190px]">เทียบแผน &amp; ราคาแผน</th>' +
                 '<th class="' + TH + ' min-w-[120px]">หมายเหตุ</th>' +
@@ -2088,7 +2365,7 @@
       '<select id="dm" onchange="STK.filterDb()" class="border rounded-lg px-3 py-1.5 text-sm">' + modes.map(function (m) { return '<option value="' + m[0] + '"' + (S.df.mode === m[0] ? ' selected' : '') + '>' + m[1] + '</option>'; }).join('') + '</select>' +
       '<button type="button" onclick="STK.dbEdit(0)" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600"><i class="fa-solid fa-plus mr-1"></i>เพิ่มวัสดุ</button>' +
       '<button type="button" onclick="STK.fillDefaults()" class="' + BTN + 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200">เติม rate/month และ min ที่ว่างอัตโนมัติ</button></div>' +
-      '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' + ['รหัส', 'CPN', 'P151', 'รายการ', 'หน่วย', 'rate/เดือน', 'min', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') + '</tr></thead><tbody id="dbody"></tbody></table></div><p id="dcount" class="text-xs text-gray-400 mt-2"></p>');
+      '<div class="overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100"><tr>' + ['รหัส', 'CPN', 'P151', 'รายการ', 'หน่วย', 'ขนาดบรรจุ', 'rate/เดือน', 'min', ''].map(function (h) { return '<th class="' + TH + '">' + h + '</th>'; }).join('') + '</tr></thead><tbody id="dbody"></tbody></table></div><p id="dcount" class="text-xs text-gray-400 mt-2"></p>');
     drawDb();
   }
   STK.filterDb = function () { S.df.q = $('dq').value; S.df.mode = $('dm').value; drawDb(); };
@@ -2100,22 +2377,22 @@
       return !q || (i.name + ' ' + i.id + ' ' + i.cpn + ' ' + i.p151).toLowerCase().indexOf(q) >= 0;
     });
     $('dbody').innerHTML = rows.map(function (i) {
-      return '<tr class="border-t hover:bg-gray-50"><td class="p-2 text-xs">' + esc(i.id) + '</td><td class="p-2 text-xs">' + esc(i.cpn) + '</td><td class="p-2 text-xs">' + esc(i.p151 || '-') + '</td><td class="p-2">' + esc(i.name) + '</td><td class="p-2 text-xs">' + esc(i.unit) + '</td><td class="p-2 text-right">' + nf(i.rate) + '</td><td class="p-2 text-right">' + nf(i.min) + '</td>' +
+      return '<tr class="border-t hover:bg-gray-50"><td class="p-2 text-xs">' + esc(i.id) + '</td><td class="p-2 text-xs">' + esc(i.cpn) + '</td><td class="p-2 text-xs">' + esc(i.p151 || '-') + '</td><td class="p-2">' + esc(i.name) + '</td><td class="p-2 text-xs">' + esc(i.unit) + '</td><td class="p-2 text-xs font-mono">' + esc(i.pack || '-') + '</td><td class="p-2 text-right">' + nf(i.rate) + '</td><td class="p-2 text-right">' + nf(i.min) + '</td>' +
         '<td class="p-2"><button type="button" onclick="STK.dbEdit(' + i.row + ')" class="text-xs text-blue-600 underline">แก้ไข</button></td></tr>';
-    }).join('') || '<tr><td colspan="8" class="p-4 text-center text-gray-400">ไม่พบรายการ</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="p-4 text-center text-gray-400">ไม่พบรายการ</td></tr>';
     $('dcount').textContent = 'แสดง ' + rows.length + ' จาก ' + S.db.items.length + ' รายการ';
   }
   STK.dbEdit = function (row) {
-    var i = row ? S.db.items.filter(function (x) { return x.row === row; })[0] : { cpn: '', p151: '', name: '', unit: '', rate: null, min: null, spec: '', purpose: '' };
+    var i = row ? S.db.items.filter(function (x) { return x.row === row; })[0] : { cpn: '', p151: '', name: '', unit: '', pack: '', rate: null, min: null, spec: '', purpose: '' };
     function f(id, label, v, type, cls) { return '<div class="' + (cls || '') + '"><label class="text-xs text-gray-500">' + label + '</label><input id="' + id + '" type="' + (type || 'text') + '" step="any" value="' + esc(v === null || v === undefined ? '' : v) + '" class="' + INPUT + '"></div>'; }
     modal(row ? 'แก้ไขวัสดุ ' + esc(i.id) : 'เพิ่มวัสดุใหม่', '<div class="grid grid-cols-2 gap-3">' +
-      f('bName', 'ชื่อรายการ', i.name, 'text', 'col-span-2') + f('bCpn', 'รหัส CPN', i.cpn) + f('bP151', 'รหัส P151', i.p151) + f('bUnit', 'หน่วยนับ', i.unit) + f('bRate', 'rate/เดือน', i.rate, 'number') + f('bMin', 'min (จุดสั่งซื้อ)', i.min, 'number') +
+      f('bName', 'ชื่อรายการ', i.name, 'text', 'col-span-2') + f('bCpn', 'รหัส CPN', i.cpn) + f('bP151', 'รหัส P151', i.p151) + f('bUnit', 'หน่วยนับ', i.unit) + f('bPack', 'ขนาดบรรจุ (เช่น 1x1, 1x6)', i.pack) + f('bRate', 'rate/เดือน', i.rate, 'number') + f('bMin', 'min (จุดสั่งซื้อ)', i.min, 'number') +
       '<div class="col-span-2"><label class="text-xs text-gray-500">คุณสมบัติทั่วไป / คุณลักษณะ (หนึ่งบรรทัดต่อหนึ่งข้อ — ใช้ในเอกสารกำหนดคุณลักษณะ)</label><textarea id="bSpec" rows="6" class="' + INPUT + '">' + esc(i.spec) + '</textarea></div>' +
       '<div class="col-span-2"><label class="text-xs text-gray-500">วัตถุประสงค์ในการใช้งาน (ข้อความต่อจากชื่อรายการ เช่น &quot;ใช้ในงานทันตกรรมเพื่อ…&quot;)</label><textarea id="bPurpose" rows="3" class="' + INPUT + '">' + esc(i.purpose) + '</textarea></div></div>' +
       '<div class="mt-3 flex gap-2"><button type="button" onclick="STK.dbSave(' + row + ')" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึก</button><button type="button" onclick="STK.close()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200">ยกเลิก</button></div>');
   };
   STK.dbSave = async function (row) {
-    var r = await call('stockSaveDb', { row: row || 0, name: $('bName').value, cpn: $('bCpn').value, p151: $('bP151').value, unit: $('bUnit').value, rate: $('bRate').value, min: $('bMin').value, spec: $('bSpec').value, purpose: $('bPurpose').value });
+    var r = await call('stockSaveDb', { row: row || 0, name: $('bName').value, cpn: $('bCpn').value, p151: $('bP151').value, unit: $('bUnit').value, pack: $('bPack').value, rate: $('bRate').value, min: $('bMin').value, spec: $('bSpec').value, purpose: $('bPurpose').value });
     if (!r) return;
     if (!r.success) return fail(r.error);
     STK.close(); S.board = null;
@@ -2144,7 +2421,7 @@
     body('<div class="max-w-2xl"><h3 class="text-lg font-medium mb-3">ตั้งค่าระบบคลัง</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
       f('cFY', 'ปีงบประมาณ (พ.ศ.)', S.cfg.FY, 'ใช้เทียบแผนและนับยอดสั่ง') + f('cPlan', 'ชื่อชีตแผนของปีนั้น', S.cfg.PLAN_SHEET, 'ปี 70: สร้างชีตแผนใหม่ แล้วเปลี่ยนค่านี้') +
       f('cExp', 'เตือนก่อนหมดอายุ (วัน)', S.cfg.EXPIRY_DAYS) + f('cMonths', 'เดือนสำรองสำหรับคำนวณ min', S.cfg.MIN_MONTHS) +
-      f('cWarn', 'เตือนเมื่อราคาสั่งซื้อสูงกว่าราคาแผนเกิน (%)', S.cfg.PRICE_WARN_PCT, 'เกินเกณฑ์นี้ต้องใส่เหตุผลก่อนบันทึก (เฉพาะสถานะที่นับเป็นยอดสั่ง)') +
+      f('cWarn', 'เตือนเมื่อราคาที่ซื้อสูงกว่าราคาแผนเกิน (%)', S.cfg.PRICE_WARN_PCT, 'เกินเกณฑ์นี้ต้องใส่เหตุผลก่อนบันทึก (เฉพาะสถานะที่นับเป็นยอดสั่ง)') +
       f('cHosp', 'รหัสหน่วยของโรงพยาบาล', S.cfg.HOSPITAL_CODE, 'แสดงป้าย "ใช้ภายใน รพ." ในรายการหน่วยตอนจ่ายออก') + f('cMail', 'อีเมลผู้รับแจ้งเตือน (คั่นด้วย ,)', S.cfg.ALERT_EMAILS, 'เว้นว่าง = ใช้อีเมลของรหัส 00001') + '</div>' +
       '<div class="mt-3 flex flex-wrap gap-2"><button type="button" onclick="STK.cfgSave()" class="' + BTN + 'bg-blue-500 text-white hover:bg-blue-600">บันทึกการตั้งค่า</button>' +
       '<button type="button" onclick="STK.testMail()" class="' + BTN + 'bg-gray-100 hover:bg-gray-200"><i class="fa-solid fa-envelope mr-1"></i>ส่งอีเมลสรุปทดสอบ</button>' +
