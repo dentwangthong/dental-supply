@@ -9,12 +9,27 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+    html {
+      font-size: 17px;
+    }
     body {
       font-family: 'Prompt', sans-serif;
       background-color: #f8fafc;
       background-image: radial-gradient(circle at 15% 10%, #eef6ff 0%, transparent 45%),
                         radial-gradient(circle at 85% 90%, #fdf2f8 0%, transparent 45%);
       color: #334155;
+      font-size: 1rem;
+    }
+    #stockApp table, #adminTableContainer table {
+      font-size: 0.94rem;
+    }
+    #stockApp .text-xs, #adminTableContainer .text-xs {
+      font-size: 0.82rem;
+      line-height: 1.25rem;
+    }
+    #stockApp .text-\[11px\], #adminTableContainer .text-\[11px\] {
+      font-size: 0.76rem;
+      line-height: 1.15rem;
     }
     .bg-pastel-pink { background-color: #f472b6; color: #fff; }
     .bg-pastel-blue { background-color: #3b82f6; color: #fff; }
@@ -31,9 +46,9 @@
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
-      padding: 0.5rem 1.1rem;
+      padding: 0.5rem 1.15rem;
       border-radius: 9999px;
-      font-size: 0.875rem;
+      font-size: 0.95rem;
       font-weight: 500;
       color: #64748b;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
