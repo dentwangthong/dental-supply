@@ -425,6 +425,7 @@
   };
 
   function has1(setId) { return D.reg.some(function (r) { return r.setId === setId && r.type === DOC_TYPE && r.status !== 'ลบแล้ว'; }); }
+  function hasActiveDoc(setId) { return D.reg.some(function (r) { return r.setId === setId && r.status !== 'ลบแล้ว'; }); }
   function quoteBtn(s) {
     var n = Array.isArray(s.quotes) ? s.quotes.length : 0;
     return '<button type="button" onclick="STK.quoteModal(\'' + s.id + '\')" class="text-xs ' +
@@ -443,7 +444,7 @@
         '<td class="p-2 whitespace-nowrap"><button type="button" onclick="STK.docOpen(\'' + s.id + '\')" class="text-xs text-blue-600 underline mr-2">ฉบับ ๑</button>' +
         (has1(s.id) ? '<button type="button" onclick="STK.docOpenSpec(\'' + s.id + '\')" class="text-xs text-indigo-600 underline mr-2">ฉบับ ๒</button><button type="button" onclick="STK.docOpenPO(\'' + s.id + '\')" class="text-xs text-teal-600 underline mr-2">ฉบับ ๓</button>' : '<span class="text-xs text-gray-300 mr-2" title="ต้องออกฉบับที่ ๑ ก่อน">ฉบับ ๒ ฉบับ ๓</span>') +
         quoteBtn(s) +
-        (s.status === 'ออกเอกสารแล้ว' ? '' : '<button type="button" onclick="STK.setDelete(\'' + s.id + '\')" class="text-xs text-red-500 underline">ลบ</button>') + '</td></tr>';
+        ((hasActiveDoc(s.id) && s.items.length > 0) ? '' : '<button type="button" onclick="STK.setDelete(\'' + s.id + '\')" class="text-xs text-red-500 underline">ลบ</button>') + '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="p-4 text-center text-gray-400">ยังไม่มีชุดจัดซื้อ — ไปที่ สั่งซื้อวัสดุ ติ๊กรายการแล้วกด "สร้างชุดจัดซื้อจากที่เลือก"</td></tr>';
     var regs = D.reg.map(function (r) {
       var del = r.status === 'ลบแล้ว';
